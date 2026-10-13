@@ -39,7 +39,13 @@ test('Reuse an existing service without taking ownership; reject unrelated serve
 test('Start and gracefully stop the actual helper on an unused port', async () => {
     const probe = net.createServer(), port = await listen(probe); await close(probe);
     const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'seq-desktop-service-test-'));
-    const helper = await ensureService({port, root: path.resolve(__dirname, '..'), logPath: path.join(folder, 'service.log')});
+    let helper;
+    try { helper = await ensureService({port, root: path.resolve(__dirname, '..'), logPath: path.join(folder, 'service.log')}); }
+    catch (error) {
+        const log = path.join(folder, 'service.log');
+        error.message += `\nHelper log (${log}):\n${fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : 'No log created: initial port probe failed before helper launch.'}`;
+        throw error;
+    }
     try { assert.equal(helper.owned, true); assert.equal((await status(helper.origin)).target, 'keychron/v1_max/ansi_encoder:seq_test'); }
     finally { helper.stop(); }
     for (let i = 0; i < 30; i++) {
