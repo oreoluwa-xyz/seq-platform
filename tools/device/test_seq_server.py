@@ -15,6 +15,12 @@ spec.loader.exec_module(s)
 
 
 class FirmwareTests(unittest.TestCase):
+    def test_loopback_server_startup_does_not_require_dns(self):
+        with patch('socket.getfqdn', side_effect=AssertionError('No DNS during local startup')):
+            with s.LoopbackHTTPServer(('127.0.0.1', 0), s.Handler) as server:
+                self.assertEqual(server.server_name, '127.0.0.1')
+                self.assertGreater(server.server_port, 0)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)

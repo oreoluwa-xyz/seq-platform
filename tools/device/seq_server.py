@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import secrets
 import shutil
+import socketserver
 import struct
 import subprocess
 import tempfile
@@ -331,6 +332,13 @@ class Handler(SimpleHTTPRequestHandler):
             self.json_response({'error': str(error)}, 400)
 
 
+class LoopbackHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer's reverse DNS lookup can stall startup on offline/CI Macs.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+
+
 def main():
     global ROOT
     parser = argparse.ArgumentParser(description=__doc__)
@@ -355,7 +363,7 @@ def main():
     ROOT = args.root.resolve(strict=True)
     if args.seed_store:
         seed_releases(args.seed_store, args.store)
-    server = ThreadingHTTPServer(('127.0.0.1', args.port), Handler)
+    server = LoopbackHTTPServer(('127.0.0.1', args.port), Handler)
     server.manager = FirmwareManager(args.store, str(args.dfu.resolve(strict=True)) if args.dfu else None)
     print(f'Module Studio + firmware manager: http://localhost:{server.server_port}/ui/', flush=True)
     try:
