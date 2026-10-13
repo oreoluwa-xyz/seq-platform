@@ -1,0 +1,20 @@
+{
+  "name": "seq-desktop",
+  "productName": "SEQ",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Floating desktop companion for the SEQ instrument workshop",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test.cjs",
+    "test:smoke": "electron . --smoke-test",
+    "postinstall": "install-electron",
+    "dist:mac": "node scripts/release.cjs",
+    "dist:local": "node scripts/release.cjs --local"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  }
+}

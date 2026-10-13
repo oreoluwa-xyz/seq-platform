@@ -1,0 +1,81 @@
+name: Build SEQ preview
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  firmware:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prepare pinned backend
+        run: python tools/workspace.py prepare
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi dfu-util clang
+          python -m pip install qmk==1.1.8 -r .work/qmk/requirements.txt
+      - name: Run firmware and UI regression tests
+        run: |
+          sh .work/qmk/keyboards/keychron/v1_max/ansi_encoder/keymaps/seq_test/tests/seq_engine/run.sh
+          python -m unittest discover -s .work/qmk/keyboards/keychron/v1_max/ansi_encoder/keymaps/seq_test/tools -p 'test_*.py'
+      - name: Build firmware from this commit
+        run: |
+          python tools/workspace.py firmware
+          sha256sum dist/firmware.bin > dist/firmware.sha256
+          git rev-parse HEAD > dist/source-commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/
+          retention-days: 3
+          if-no-files-found: error
+  desktop:
+    needs: firmware
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: dist/
+      - name: Verify firmware transfer and prepare backend
+        run: |
+          shasum -a 256 -c dist/firmware.sha256
+          test "$(cat dist/source-commit.txt)" = "$(git rev-parse HEAD)"
+          python tools/workspace.py prepare
+          python tools/workspace.py register --image dist/firmware.bin
+      - name: Test and package
+        run: |
+          python -m pip install pyinstaller==6.22.3
+          export SEQ_BUILD_PYTHON="$(command -v python)"
+          export SEQ_FIRMWARE_ID="$(shasum -a 256 dist/firmware.bin | cut -d ' ' -f 1)"
+          DESKTOP=.work/qmk/keyboards/keychron/v1_max/ansi_encoder/keymaps/seq_test/desktop
+          npm ci --prefix "$DESKTOP"
+          npm test --prefix "$DESKTOP"
+          python tools/workspace.py package --firmware-id "$SEQ_FIRMWARE_ID"
+      - name: Smoke-test standalone app
+        run: |
+          APP="$GITHUB_WORKSPACE/.work/qmk/keyboards/keychron/v1_max/ansi_encoder/keymaps/seq_test/desktop/dist/mac-arm64/SEQ.app/Contents/MacOS/SEQ"
+          cd "$RUNNER_TEMP"
+          PATH=/usr/bin:/bin SEQ_DESKTOP_PORT=18766 "$APP" --smoke-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: seq-macos-preview
+          path: dist/
+          retention-days: 3
+          if-no-files-found: error

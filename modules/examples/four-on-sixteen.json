@@ -1,0 +1,22 @@
+{
+  "format": "seq-module",
+  "version": 1,
+  "id": "four-on-sixteen",
+  "name": "Four on sixteen",
+  "engine": "euclid",
+  "config": {
+    "enabled": true,
+    "steps": 16,
+    "fills": 4,
+    "rotation": 0,
+    "probability": 100,
+    "accent": 0,
+    "ratchet": 0,
+    "root": 0,
+    "pool": [
+      0
+    ],
+    "pin": null,
+    "template": null
+  }
+}

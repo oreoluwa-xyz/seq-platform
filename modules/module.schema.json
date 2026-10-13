@@ -1,0 +1,536 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SEQ modules: legacy v1 and compositions v2",
+  "description": "Also apply ui/module.mjs semantic validation for numeric relationships, sorted pitches and component compatibility.",
+  "oneOf": [
+    {
+      "title": "SEQ Module v1",
+      "description": "Also apply semantic validation: ascending chord notes; fills <= steps; rotation < steps; ratchet <= steps; pin < pool length; template requires steps <= 16.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "version",
+        "id",
+        "name",
+        "engine",
+        "config"
+      ],
+      "properties": {
+        "format": {
+          "const": "seq-module"
+        },
+        "version": {
+          "const": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "\\S"
+        },
+        "engine": {
+          "enum": [
+            "euclid",
+            "chord-bank"
+          ]
+        },
+        "config": {}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "engine": {
+                "const": "euclid"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "enabled",
+                  "steps",
+                  "fills",
+                  "rotation",
+                  "probability",
+                  "accent",
+                  "ratchet",
+                  "root",
+                  "pool",
+                  "pin",
+                  "template"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "steps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 2048
+                  },
+                  "fills": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2048
+                  },
+                  "rotation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2047
+                  },
+                  "probability": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "accent": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "ratchet": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 255
+                  },
+                  "root": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 11
+                  },
+                  "pool": {
+                    "type": "array",
+                    "minItems": 0,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "integer",
+                      "minimum": -128,
+                      "maximum": 127
+                    }
+                  },
+                  "pin": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 7
+                      }
+                    ]
+                  },
+                  "template": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 65535
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "config": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "selected",
+                  "transpose",
+                  "inversion",
+                  "slots"
+                ],
+                "properties": {
+                  "selected": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 11
+                  },
+                  "transpose": {
+                    "type": "integer",
+                    "minimum": -24,
+                    "maximum": 24
+                  },
+                  "inversion": {
+                    "type": "integer",
+                    "minimum": -3,
+                    "maximum": 3
+                  },
+                  "slots": {
+                    "type": "array",
+                    "minItems": 12,
+                    "maxItems": 12,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "notes",
+                        "velocity",
+                        "length"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "\\S"
+                        },
+                        "notes": {
+                          "type": "array",
+                          "maxItems": 8,
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 127
+                          }
+                        },
+                        "velocity": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 127
+                        },
+                        "length": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2048
+                        },
+                        "root": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ],
+                          "minimum": 0,
+                          "maximum": 127,
+                          "description": "Optional declared MIDI root for workshop recipes. Authoring metadata; not part of bank playback wire payload."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "version",
+        "id",
+        "name",
+        "components"
+      ],
+      "properties": {
+        "format": {
+          "const": "seq-module"
+        },
+        "version": {
+          "const": 2
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "\\S"
+        },
+        "components": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "version",
+                    "params"
+                  ],
+                  "properties": {
+                    "id": {
+                      "const": "rhythm.stored"
+                    },
+                    "version": {
+                      "const": 1
+                    },
+                    "params": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [],
+                      "properties": {}
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "version",
+                    "params"
+                  ],
+                  "properties": {
+                    "id": {
+                      "const": "rhythm.euclid"
+                    },
+                    "version": {
+                      "const": 1
+                    },
+                    "params": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "enabled",
+                        "steps",
+                        "fills",
+                        "rotation",
+                        "probability",
+                        "accent",
+                        "ratchet",
+                        "template"
+                      ],
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "steps": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 2048
+                        },
+                        "fills": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2048
+                        },
+                        "rotation": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2047
+                        },
+                        "probability": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "accent": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "ratchet": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 255
+                        },
+                        "template": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 65535
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "version",
+                    "params"
+                  ],
+                  "properties": {
+                    "id": {
+                      "const": "pitch.track"
+                    },
+                    "version": {
+                      "const": 1
+                    },
+                    "params": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "root",
+                        "pool",
+                        "pin"
+                      ],
+                      "properties": {
+                        "root": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 11
+                        },
+                        "pool": {
+                          "type": "array",
+                          "minItems": 0,
+                          "maxItems": 8,
+                          "items": {
+                            "type": "integer",
+                            "minimum": -128,
+                            "maximum": 127
+                          }
+                        },
+                        "pin": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 7
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "version",
+                    "params"
+                  ],
+                  "properties": {
+                    "id": {
+                      "const": "pitch.chord-bank"
+                    },
+                    "version": {
+                      "const": 1
+                    },
+                    "params": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "selected",
+                        "transpose",
+                        "inversion",
+                        "slots"
+                      ],
+                      "properties": {
+                        "selected": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 11
+                        },
+                        "transpose": {
+                          "type": "integer",
+                          "minimum": -24,
+                          "maximum": 24
+                        },
+                        "inversion": {
+                          "type": "integer",
+                          "minimum": -3,
+                          "maximum": 3
+                        },
+                        "slots": {
+                          "type": "array",
+                          "minItems": 12,
+                          "maxItems": 12,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "name",
+                              "notes",
+                              "velocity",
+                              "length"
+                            ],
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64,
+                                "pattern": "\\S"
+                              },
+                              "notes": {
+                                "type": "array",
+                                "maxItems": 8,
+                                "uniqueItems": true,
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 127
+                                }
+                              },
+                              "velocity": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 127
+                              },
+                              "length": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 2048
+                              },
+                              "root": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 127,
+                                "description": "Optional declared MIDI root for workshop recipes. Authoring metadata; not part of bank playback wire payload."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "items": false
+        }
+      }
+    }
+  ]
+}

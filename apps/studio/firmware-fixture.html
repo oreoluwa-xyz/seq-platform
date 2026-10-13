@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Firmware manager regression fixture</title><link rel="stylesheet" href="style.css"><body><button id="open">Firmware fixture</button><p id="result" role="status">Running simulated firmware checks…</p><dialog id="firmware-dialog" aria-labelledby="firmware-title"></dialog><script type="module">
+import {setupFirmware} from './firmware.mjs';
+const dialog=document.querySelector('dialog'),button=document.querySelector('#open'),q=s=>dialog.querySelector(s);
+const release={id:'a'.repeat(64),sha256:'a'.repeat(64),target:'keychron/v1_max/ansi_encoder:seq_test',label:'Simulation only',notes:'No USB or MIDI operations. This fixture uses an in-memory service.',size:151976,flags:63,snapshot:3,identity:{version:'2026.09.17.1',buildId:'b'.repeat(32),target:'keychron/v1_max/ansi_encoder:seq_test'}};
+let state={apiVersion:1,token:'test',releases:[release],devices:[{serial:'TEST1',label:'Simulated bootloader 1'},{serial:'TEST2',label:'Simulated bootloader 2'}],toolAvailable:true,job:null},backedUp=0,flashes=0,disconnected=0,checkFails=false,backupFails=false;
+const ui=setupFirmware({button,dialog,connected:()=>true,backup:async()=>{if(backupFails)throw Error('Backup failed');backedUp++;},disconnect:async()=>{disconnected++;},verify:async()=>{if(checkFails)throw Error('MIDI unavailable');return 'Expected features verified (simulated)';},fetcher:async(url,options)=>{
+ if(options.method==='POST'){flashes++;const request=JSON.parse(options.body);if(request.serial!=='TEST2')throw Error('Wrong serial');state.job={id:'test-job',release,serial:'TEST2',state:'flashing',phase:'Writing',progress:42,log:'Simulation'};return new Response(JSON.stringify(state.job),{status:202,headers:{'Content-Type':'application/json'}});}
+ return new Response(JSON.stringify(state),{headers:{'Content-Type':'application/json'}});
+}});
+const assert=(v,m)=>{if(!v)throw Error(m)},settle=()=>new Promise(r=>setTimeout(r,30));
+try{
+ button.click();await settle();assert(q('[data-release-identity]').textContent.includes(release.identity.buildId),'Embedded build identity visible');assert(q('[data-flash]').disabled,'No flash before backup acknowledgement and target selection');
+ backupFails=true;q('[data-backup]').click();await settle();assert(!q('[data-prepared]').checked,'Failed backup must not acknowledge preparation');assert(q('[data-message]').textContent==='Backup failed','Backup failure visible');
+ backupFails=false;q('[data-backup]').click();await settle();assert(backedUp===1&&q('[data-prepared]').checked,'Successful backup acknowledged');assert(q('[data-flash]').disabled,'Multiple bootloaders require selection');
+ q('[data-device]').value='TEST2';q('[data-device]').dispatchEvent(new Event('change'));assert(!q('[data-flash]').disabled,'Ready after selecting target');q('[data-flash]').click();await settle();assert(flashes===1&&disconnected===1,'One flash after MIDI closes');assert(q('[data-flash]').disabled&&q('[data-release]').disabled,'Controls locked during flashing');
+ dialog.close();await ui.refresh();assert(state.job.state==='flashing','Closing does not cancel');button.click();await settle();assert(q('[data-progress]').value===42,'Reopen restores progress');
+ state.job={...state.job,state:'completed',phase:'Flash completed',progress:100};await ui.refresh();assert(!q('[data-after]').hidden,'Reconnect offered only after success');
+ checkFails=true;q('[data-verify]').click();await settle();assert(q('[data-verification]').textContent==='Verification not confirmed.','Failure is not success');await ui.refresh();assert(q('[data-message]').textContent==='MIDI unavailable','Polling retains verification failure');
+ checkFails=false;q('[data-verify]').click();await settle();assert(q('[data-verification]').textContent.includes('verified'),'MIDI verified');
+ state.job={...state.job,state:'failed',error:'Simulated interrupted flash',phase:'Needs attention'};await ui.refresh();assert(q('[data-after]').hidden&&q('[data-message]').textContent.includes('interrupted'),'Failure provides recovery');
+ state.job=null;state.devices=[];await ui.refresh();assert(q('[data-flash]').disabled,'Disconnected bootloader blocks install');
+ state.devices=[{serial:'TEST2',label:'Simulated bootloader 2'}];await ui.refresh();
+ document.querySelector('#result').textContent='PASS: backup failure/success, serial selection, flash locking, panel reopen, progress, MIDI verification failure/success, interrupted flash, disconnected bootloader.';
+ document.title='PASS · Firmware manager regression fixture';
+}catch(error){document.querySelector('#result').textContent='FAIL: '+error.message;document.title='FAIL · Firmware manager regression fixture';}
+</script></body></html>

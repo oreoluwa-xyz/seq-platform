@@ -1,0 +1,158 @@
+{
+  "format": "seq-module",
+  "version": 1,
+  "id": "after-hours",
+  "name": "After hours",
+  "engine": "chord-bank",
+  "config": {
+    "selected": 0,
+    "transpose": 0,
+    "inversion": 0,
+    "slots": [
+      {
+        "name": "Cmaj7",
+        "notes": [
+          48,
+          52,
+          55,
+          59
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 48
+      },
+      {
+        "name": "Dm7",
+        "notes": [
+          50,
+          53,
+          57,
+          60
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 50
+      },
+      {
+        "name": "Em7",
+        "notes": [
+          52,
+          55,
+          59,
+          62
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 52
+      },
+      {
+        "name": "Fmaj7",
+        "notes": [
+          53,
+          57,
+          60,
+          64
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 53
+      },
+      {
+        "name": "G7",
+        "notes": [
+          43,
+          47,
+          50,
+          53
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 43
+      },
+      {
+        "name": "Am7",
+        "notes": [
+          45,
+          48,
+          52,
+          55
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 45
+      },
+      {
+        "name": "Bm7♭5",
+        "notes": [
+          47,
+          50,
+          53,
+          57
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 47
+      },
+      {
+        "name": "Cadd9",
+        "notes": [
+          48,
+          52,
+          55,
+          62
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 48
+      },
+      {
+        "name": "Fsus2",
+        "notes": [
+          53,
+          55,
+          60
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 53
+      },
+      {
+        "name": "Gsus4",
+        "notes": [
+          43,
+          48,
+          50
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 43
+      },
+      {
+        "name": "Am9",
+        "notes": [
+          45,
+          48,
+          52,
+          55,
+          59
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 45
+      },
+      {
+        "name": "G13",
+        "notes": [
+          43,
+          47,
+          50,
+          53,
+          64
+        ],
+        "velocity": 96,
+        "length": 4,
+        "root": 43
+      }
+    ]
+  }
+}

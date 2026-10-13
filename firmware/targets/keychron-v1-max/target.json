@@ -1,0 +1,13 @@
+{
+  "id": "keychron-v1-max",
+  "backend": "qmk",
+  "keyboard": "keychron/v1_max/ansi_encoder",
+  "keymap": "seq_test",
+  "protocolTarget": "keychron/v1_max/ansi_encoder:seq_test",
+  "flash": {
+    "transport": "stm32-dfu",
+    "address": "0x08000000",
+    "maxBytes": 262144
+  },
+  "supported": true
+}

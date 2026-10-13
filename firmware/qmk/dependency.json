@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/Keychron/qmk_firmware.git",
+  "revision": "0a529031e6bce61cfc7f64cd78d2be904a383b55",
+  "patches": [
+    "firmware/qmk/patches/0001-wireless-queue-size.patch"
+  ],
+  "submodules": [
+    "lib/chibios",
+    "lib/chibios-contrib",
+    "lib/printf"
+  ]
+}

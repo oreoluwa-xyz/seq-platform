@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Lane rhythm fixture</title><link rel="stylesheet" href="style.css"><body><main style="padding:32px"><p id="result">Checking…</p><section id="controls"></section></main><script type="module">
+import {renderRhythmControls} from './rhythm-controls.mjs';
+const root=document.querySelector('#controls'),assert=(ok,message)=>{if(!ok)throw Error(message)},edits=[];
+const base={track:0,child:false,engine:0,active:true,length:16,pattern:0x1111,euclid:{editable:true,orderedKeys:true,laneSupported:true,lane:0,euclidean:true,enabled:true,steps:16,fills:4,rotation:0,probability:100,accent:0,generated:0x1111}};
+try{
+ renderRhythmControls(root,base,true,(...args)=>edits.push(args));
+ assert(root.textContent.includes('Drum lane 1 · independent rhythm.'),'Lane scope visible');
+ const old=root.querySelector('[aria-label="Live fills"]');old.focus();old.value='7';old.dispatchEvent(new Event('change'));
+ assert(edits.length===1&&edits[0].join(',')==='0,2,1,7,4','Lane identity carried on edits');
+ const next={...base,euclid:{...base.euclid,lane:2,steps:12,fills:5}};
+ renderRhythmControls(root,next,true,(...args)=>edits.push(args));
+ assert(!old.isConnected&&root.querySelector('[aria-label="Live fills"]').value==='5','Switching lanes replaces pending fields');
+ old.dispatchEvent(new Event('change'));assert(edits.length===1,'Detached field cannot write to new lane');
+ const fills=root.querySelector('[aria-label="Live fills"]');fills.value='6';fills.dispatchEvent(new Event('change'));
+ assert(edits[1].join(',')==='0,6,1,6,5','New lane uses its own context and old value');
+ renderRhythmControls(root,{...next,euclid:{...next.euclid,lane:null}},true,()=>{});
+ assert(!root.textContent.includes('Drum lane'),'Melodic context stays per track');
+ renderRhythmControls(root,next,true,()=>{});
+ document.querySelector('#result').textContent='PASS: lane label, edit context, independent values, stale field protection and melodic compatibility.';document.title='PASS · Lane rhythm fixture';
+}catch(e){document.querySelector('#result').textContent='FAIL: '+e.message;document.title='FAIL · Lane rhythm fixture';}
+</script></body></html>

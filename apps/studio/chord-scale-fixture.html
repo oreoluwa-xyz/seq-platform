@@ -1,0 +1,28 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Scale chord fixture</title><link rel="stylesheet" href="style.css"><body><main style="padding:24px"><p id="result">Checking…</p><section id="live"></section><section id="workshop"></section></main><script>addEventListener("error",e=>{document.querySelector("#result").textContent="FAIL: "+e.message;document.title="FAIL · Scale chord fixture"});</script><script type="module">
+import {setupChordWorkshop} from './chord-workshop.mjs';
+import {recipeProgression,decodeChordProject,encodeChordProject} from './chord-project.mjs';
+import {encodeChordTrack} from './harmony.mjs';
+import {renderChordMode} from './chord-mode.mjs';
+const scale={enabled:true,root:5,kind:5},recipe={root:67,type:10,start:0,length:4,velocity:100,scaleRoot:5,scaleKind:5,inversion:0};
+const raw=encodeChordTrack(recipeProgression([recipe],16),0,{editable:true}),source=decodeChordProject(raw,{allowUnowned:true});
+source.draft=recipe;const bytes=encodeChordProject(source,[recipe]);
+const root=document.querySelector('#workshop'),q=s=>root.querySelector(s),assert=(v,m)=>{if(!v)throw Error(m)},settle=()=>new Promise(r=>setTimeout(r,30));let writes=0;
+const workshop=setupChordWorkshop(root,{readTrack:async()=>bytes,install:async()=>{writes++;return true},audition:()=>{},getGlobalScale:()=>scale});
+try{
+ workshop.open(0,true,true,true,true);q('[data-read]').click();await settle();
+ assert(q('.chord-recipe-row strong').textContent.includes('Gdim'),'Scale quality is named');
+ assert([...q('[aria-label="Chord 1 type"]').options].map(o=>Number(o.value)).join(',')==='10,11,13,14,15','Bound types only');
+ let policy=q('[aria-label="Chord 1 scale policy"]');policy.value='1';policy.dispatchEvent(new Event('change'));await settle();
+ assert(q('.chord-recipe-row strong').textContent.includes('Free'),'Single chord escape visible');
+ assert([...q('[aria-label="Chord 1 type"]').options].some(o=>Number(o.value)===16),'Fully diminished seventh available');
+ policy=q('[aria-label="Chord 1 scale policy"]');policy.value='0';policy.dispatchEvent(new Event('change'));await settle();
+ assert(q('.chord-recipe-row strong').textContent.includes('Gdim'),'Rebinding restores scale harmony');
+ root.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter',ctrlKey:true,shiftKey:true,bubbles:true,cancelable:true}));
+ assert(!q('[data-scale-preview]').hidden&&!writes&&q('[data-write]').disabled,'Conform shortcut previews without writing');q('[data-scale-cancel]').click();
+ root.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter',metaKey:true,altKey:true,bubbles:true,cancelable:true}));
+ assert(!q('[data-scale-preview]').hidden&&q('[data-scale-description]').textContent.includes('snaps')&&!writes,'Quantize shortcut previews without writing');q('[data-scale-cancel]').click();
+ renderChordMode(document.querySelector('#live'),{chordMode:{...recipe,enabled:true,selected:0,held:true,notes:[67,70,73],parameter:1,scaleBoundSupported:true,scaleEnabled:true,customSupported:true,inversionSupported:true}},true);
+ assert(document.querySelector('#live').textContent.includes('Scale-bound'),'Live policy visible');
+ document.querySelector('#result').textContent='PASS: scale quality, constrained types, single-chord Free, rebinding, both preview shortcuts, no hardware writes and live policy.';document.title='PASS · Scale chord fixture';
+}catch(error){document.querySelector('#result').textContent='FAIL: '+error.message;document.title='FAIL · Scale chord fixture';}
+</script></body></html>

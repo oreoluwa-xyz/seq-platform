@@ -1,0 +1,13 @@
+diff --git a/keyboards/keychron/common/wireless/report_buffer.c b/keyboards/keychron/common/wireless/report_buffer.c
+index 317ba8ce1d..f53ff098b6 100644
+--- a/keyboards/keychron/common/wireless/report_buffer.c
++++ b/keyboards/keychron/common/wireless/report_buffer.c
+@@ -29,7 +29,7 @@
+  *        sizeof(report_buffer_t) * 256 = 34* 256  =  8704 bytes
+  */
+ #ifndef REPORT_BUFFER_QUEUE_SIZE
+-#    define REPORT_BUFFER_QUEUE_SIZE 256
++#    define REPORT_BUFFER_QUEUE_SIZE 64
+ #endif
+ 
+ extern wt_func_t wireless_transport;

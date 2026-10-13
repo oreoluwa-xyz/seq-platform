@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SEQ / Connection help</title><link rel="stylesheet" href="style.css?v=7ce5862adb">
+<main style="max-width:800px;margin:auto;padding:48px 24px">
+<div class="eyebrow">USB MIDI / CONNECTION HELP</div><h1>When the keyboard won’t connect.</h1>
+<p>Use Cable mode, allow MIDI access, and select Keychron V1 Max for both input and output.</p>
+<h2>Chrome on macOS</h2>
+<p>A confirmed bug in Chrome 152.0.7977.76 removes the framing from SysEx replies before they reach the editor. Ports can appear connected while the editor receives nothing. Restarting without changing the MIDI backend does not fix this bug.</p>
+<p>Use a Chrome release containing the <a href="https://chromium.googlesource.com/chromium/src/+/5af1bee2ffd0d5234865b1848a52262b2081ecb2" target="_blank" rel="noopener">upstream fix</a>, or temporarily select its legacy MIDI backend:</p>
+<ol><li>Save unfinished browser work, then fully quit Chrome with <strong>⌘Q</strong>.</li><li>Run this command in Terminal:<pre style="white-space:pre-wrap;overflow-wrap:anywhere">open -a "Google Chrome" --args --disable-features=MidiMacUmp http://localhost:8765/ui/</pre></li><li>Select the keyboard’s two ports and connect again.</li></ol>
+<p>The startup flag only takes effect when Chrome is fully stopped first. It selects a different MIDI backend for that launch. A later normal launch returns to the default backend. Keep your current module firmware.</p>
+<p>If connection still fails, report the exact message in the connection dialog. A native MIDI reply alone does not establish that the browser connection works.</p>
+<p><a href="./">← Module Studio</a></p>
+</main></html>
