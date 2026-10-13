@@ -14,6 +14,13 @@ import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=3ac1a6b240
 import {LiveMonitor} from './live.mjs?v=caeba54191';
 import {renderLiveSteps,liveBarLabel} from './steps.mjs?v=340bbf5df3';
 const $=id=>document.getElementById(id), number=i=>String(i+1).padStart(2,'0');
+if(document.querySelector('meta[name="seq-hosting"][content="static"]')) {
+  const status=document.querySelector('.workspace-status');
+  if(status) {
+    status.textContent='BROWSER WORKSPACE';
+    status.title='Drafts are saved in this browser, separately from the desktop app.';
+  }
+}
 let manual=null;
 let liveMonitor=null, liveState=null, liveReady=false, queuedHardwareState=null;
 let lastHarmonyRequest=null;
