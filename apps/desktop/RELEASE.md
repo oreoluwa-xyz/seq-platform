@@ -63,6 +63,17 @@ Keep the exact firmware source checkout, including modifications and QMK submodu
 
 Use the root `tools/workspace.py` commands documented in the repository README. The packager runs from an assembled QMK workspace so legacy relative paths remain valid. Edit `apps/desktop` and `apps/studio`, not the assembled copy.
 
-`.github/workflows/preview.yml` is the active manual pipeline: Linux builds firmware from the same source commit; macOS verifies the transferred SHA-256 and commit, tests and packages the UI, then smoke-tests the standalone app. Outputs are retained for three days. It neither flashes devices nor publishes releases automatically. Triggering hosted CI can consume private-repository Actions quota.
+`.github/workflows/preview.yml` supports manual builds and `v*` tag releases: Linux builds firmware from the same source commit; macOS verifies the transferred SHA-256 and commit, tests and packages the UI, then smoke-tests the standalone app. Outputs are retained for three days. Manual runs never publish. Tag pushes publish a GitHub prerelease only after both build jobs and the standalone smoke test pass; no run flashes hardware. Triggering hosted CI can consume private-repository Actions quota.
 
 Package versions, exact firmware hashes/identities, and a file inventory are recorded beside each DMG. Signed release automation remains pending Apple credentials and a protected GitHub environment. The local `--signed` path remains available and fails closed without credentials.
+
+## Publish a new version
+
+1. Update the version in `apps/desktop/package.json` and both root version entries in `package-lock.json`. Firmware version remains independent; update it when firmware behavior changes.
+2. Commit and push the intended source to `main`.
+3. Create a new tag matching the app version, for example `git tag -a v0.1.2 -m "SEQ 0.1.2 preview"`, then `git push origin v0.1.2`.
+4. Actions validates the version, builds firmware and DMG from that commit, runs tests, and verifies artifact provenance before uploading a draft and publishing it as a prerelease.
+
+Assets include the DMG, named V1 Max firmware binary, build metadata, `release.json`, and `SHA256SUMS`. Releases are private while this repository is private. They remain explicitly unnotarized previews until a separate signed pipeline is configured. Published assets are never overwritten by workflow retries; use a new version for a replacement. Failed draft uploads may be retried. Never move a published tag.
+
+The initial v0.1.1 release uses the already verified build from commit `8a5cdb6c46cd4480e11fa9a0820970175148880e`; the tag-triggered workflow is added afterward for subsequent versions.

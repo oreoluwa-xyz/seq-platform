@@ -43,7 +43,7 @@ python3 tools/workspace.py package --firmware-id <sha256>
 
 The package command creates an explicitly unnotarized preview unless `--signed` is supplied. Signed builds require `SEQ_SIGN_IDENTITY` and `SEQ_NOTARY_PROFILE`. Set `SEQ_BUILD_PYTHON` to a native packaging environment. See [release instructions](apps/desktop/RELEASE.md).
 
-Manual GitHub Actions builds firmware and the macOS preview from the same checked-out commit, runs tests, verifies the artifact hash, and retains installers for three days. It does not publish or flash automatically. Tagged releases can later attach these reviewed artifacts. Hosted CI must pass before a release is considered verified.
+GitHub Actions builds firmware and the macOS preview from the same checked-out commit, runs tests, verifies artifact hashes, and retains temporary build artifacts for three days. A manual run builds only. Pushing a `vMAJOR.MINOR.PATCH` tag matching the desktop package version builds and automatically publishes a GitHub prerelease after all jobs pass. Release assets remain available independently of temporary artifact retention. No workflow flashes devices. See [release instructions](apps/desktop/RELEASE.md).
 
 Each desktop release bundles a pinned firmware image and records its identity and file hashes. The desktop version and firmware version are independent; protocol capabilities determine compatibility. See [architecture](docs/architecture.md).
 

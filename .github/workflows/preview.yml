@@ -1,10 +1,38 @@
-name: Build SEQ preview
+name: Build and release SEQ preview
 on:
   workflow_dispatch:
+  push:
+    tags: ['v*']
+concurrency:
+  group: seq-build-${{ github.ref }}
+  cancel-in-progress: false
 permissions:
   contents: read
 jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test release validation
+        run: python -m unittest discover -s tools -p 'test_release_assets.py'
+      - name: Validate release version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PYTHON'
+          import json, os, re
+          from pathlib import Path
+          version = json.loads(Path('apps/desktop/package.json').read_text())['version']
+          lock = json.loads(Path('apps/desktop/package-lock.json').read_text())
+          assert lock['version'] == version == lock['packages']['']['version'], 'Package versions differ'
+          if os.environ['REF_TYPE'] == 'tag':
+              tag = os.environ['REF_NAME']
+              assert re.fullmatch(r'v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', tag), 'Use vMAJOR.MINOR.PATCH tags'
+              assert tag == 'v' + version, 'Tag must match desktop package version'
+          PYTHON
   firmware:
+    needs: validate
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -79,3 +107,33 @@ jobs:
           path: dist/
           retention-days: 3
           if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [firmware, desktop]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: seq-macos-preview
+          path: artifacts/
+      - name: Verify and prepare release assets
+        run: |
+          python tools/release_assets.py --tag "$RELEASE_TAG" --commit "$(git rev-parse HEAD)" --artifacts artifacts --destination release-assets --notes release-notes.md
+      - name: Upload draft and publish preview
+        run: |
+          # Published releases are immutable in this workflow. A failed draft upload can be retried.
+          if gh release view "$RELEASE_TAG" --json isDraft > existing-release.json 2>/dev/null; then
+            python -c 'import json; assert json.load(open("existing-release.json"))["isDraft"], "Release already published; use a new version"'
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+            gh release edit "$RELEASE_TAG" --notes-file release-notes.md
+          else
+            gh release create "$RELEASE_TAG" release-assets/* --verify-tag --draft --prerelease --title "SEQ $RELEASE_TAG preview" --notes-file release-notes.md
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease
