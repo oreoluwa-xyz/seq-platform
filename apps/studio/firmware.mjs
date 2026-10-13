@@ -32,6 +32,12 @@ export async function verifyFirmware(device, release) {
 }
 
 export function setupFirmware({button,dialog,connected,backup,disconnect,verify,fetcher=fetch}) {
+  if(dialog.ownerDocument.querySelector('meta[name="seq-hosting"][content="static"]')) {
+    dialog.innerHTML=`<div class="firmware-heading"><div><div class="eyebrow">INSTRUMENT / MAINTENANCE</div><h2>Firmware.</h2></div><button data-close aria-label="Close firmware manager">Close</button></div><div class="firmware-body"><h3>Install firmware with the desktop app</h3><p>This hosted Studio can edit modules and connect over Web MIDI in a supported browser. Firmware installation requires the SEQ desktop app or the local firmware service on your computer.</p><p><a href="https://github.com/oreoluwa-xyz/seq-platform/releases" target="_blank" rel="noopener">Desktop app & firmware releases ↗</a> · GitHub repository access required.</p><p>Your drafts and backups stay in this browser. They are separate from the desktop app’s local workspace.</p></div>`;
+    button.onclick=()=>dialog.showModal();
+    dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+    return {refresh:async()=>{},render:()=>{}};
+  }
   dialog.innerHTML=`<div class="firmware-heading"><div><div class="eyebrow">INSTRUMENT / MAINTENANCE</div><h2 id="firmware-title">Firmware.</h2><p>Keep your instrument up to date.</p></div><button data-close aria-label="Close firmware manager">Close</button></div>
   <div class="firmware-body">
     <div class="firmware-device"><div><span class="eyebrow">SUPPORTED INSTRUMENT</span><strong>Keychron V1 Max</strong><span>ANSI · encoder · seq_test</span></div><div><span class="eyebrow">KEYBOARD CONNECTION</span><strong data-connection></strong><span>USB cable required for updates</span><button data-check>Connect & check MIDI</button></div></div><p data-current-check class="hint" role="status"></p>
