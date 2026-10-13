@@ -1,0 +1,57 @@
+name: Publish Studio
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/studio/**'
+      - 'docs/manual.md'
+      - 'modules/**'
+      - 'LICENSE'
+      - 'tools/build_site.py'
+      - 'tools/sync_site.py'
+      - 'tools/test_site.py'
+      - '.github/workflows/publish-studio.yml'
+permissions:
+  contents: read
+concurrency:
+  group: publish-studio
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      # Always publish current main, including when retrying an older run.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: platform
+          persist-credentials: false
+      - name: Test static publication
+        working-directory: platform
+        run: python3 -m unittest discover -s tools -p 'test_site.py'
+      - name: Build public files
+        run: python3 platform/tools/build_site.py --output "$RUNNER_TEMP/studio-site"
+      - uses: actions/checkout@v4
+        with:
+          repository: oreoluwa-xyz/seq-studio
+          ref: main
+          path: studio
+          ssh-key: ${{ secrets.STUDIO_DEPLOY_KEY }}
+      - name: Sync and publish changes
+        shell: bash
+        run: |
+          python3 platform/tools/sync_site.py "$RUNNER_TEMP/studio-site" studio
+          source_sha=$(git -C platform rev-parse HEAD)
+          cd studio
+          git add -- ui modules MANUAL.md LICENSE index.html .nojekyll
+          if git diff --cached --quiet; then
+            echo "Studio is already up to date." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name 'SEQ Studio publisher'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Publish Studio from ${source_sha}"
+          git push origin HEAD:main
+          echo "Published Studio from ${source_sha}. GitHub Pages will deploy the public commit." >> "$GITHUB_STEP_SUMMARY"
