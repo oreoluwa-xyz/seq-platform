@@ -1,7 +1,7 @@
-import {chordLabel} from './chord-mode.mjs?v=baf320581a';
+import {chordLabel} from './chord-mode.mjs?v=886590c057';
 import {scaleNames,rootKeys,rootNames,modeKeys,scaleNotes} from './scale.mjs';
 import {keyboardLayout} from './keyboard-layout.mjs?v=e35f4ea181';
-import {noteName} from './module.mjs?v=9e9d1bb338';
+import {noteName} from './module.mjs?v=08f7f2e951';
 
 export const modes = [
   ['chord-step','Chords','Build a progression.','Ctrl + Tab + track selects Chord mode. Note keys choose root; I / O / P / [ / ] select Length / Root / Velocity / Inversion / Type for the knob. Tap a step to place/select, hold to edit. With a scale enabled, Type cycles scale-derived variations. Shift + ] frees or rebinds only the selected chord. Del + step deletes.'],
@@ -10,8 +10,7 @@ export const modes = [
   ['confirmation','Confirmation','Confirm the track change.','The keyboard is waiting for Y to confirm or N to cancel.'],
   ['drum','Drums','Build a rhythm.','Tap a step to toggle it. Hold a track key and tap another to choose a drum lane.'],
   ['melodic','Melody','Play it. Place it.','Hold note keys to form a chord, then tap a step. Double-tap a populated step to edit it.'],
-  ['euclid','Euclid','Find the pulse.','Hold Alt / Option, or double-tap it to latch. Select a parameter, then turn the knob. Requires a Euclid module.'],
-  ['chord','Chord bank','A handful of harmony.','With a Chord Bank module installed, hold Alt / Option to audition a slot or stamp a chord into a step.'],
+  ['euclid','Euclid','Find the pulse.','Hold the Euclid button (Alt / Option), or double-tap it to latch; tap once to exit. Select a parameter, then turn the knob. Requires a Euclid module.'],
   ['cc','CC','Shape the sound.','Hold Cmd / Win, or double-tap to latch. Select a controller and turn the knob. Shift + PgDn toggles Automation / Manual for the target track.'],
   ['navigation','Navigation','Move through the pattern.','Hold Space for bar navigation, mutes, sync, swing, and saving.'],
   ['drum-edit','Drum edit','Give every hit a feel.','Double-tap a filled drum step. Choose velocity, ratchets, or spacing, then turn the knob.'],
@@ -30,12 +29,12 @@ export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit
   if(mode==='scale'){rootKeys.forEach((key,i)=>put(key,rootNames[i],'note',`Choose ${rootNames[i]} as the global root.`));modeKeys.forEach((key,i)=>put(key,scaleNames[i],'parameter',`Choose ${scaleNames[i]}.`));put('Enter','Apply','transport','Apply the pending global key and scale.');put('Esc','Cancel','transport','Discard pending changes.');put('0','Scale on/off','modifier','Toggle global scale constraint.');return map;}
   const alt=os==='mac'?['Mod1']:['Mod2','Mod3'],gui=os==='mac'?['Mod2','Mod3']:['Mod1'];
   const modifier=(keys,label,detail)=>keys.forEach(k=>put(k,label,'modifier',detail));
-  put('Esc','Back / exit','transport','Tap to leave an edit mode. Double-tap to exit the sequencer.');
+  put('Esc','Back / exit','transport','Hold Enter + tap Esc to capture TEMP (Esc turns purple). During TEMP, Enter + Esc keeps the edits and exits TEMP; Esc alone restores all tracks immediately. Shift + Esc queues restoration at the next global 16-step bar (blinking purple Esc). Press Shift + Esc again to cancel the queue and stay in TEMP (solid purple); while stopped it restores immediately. Neither restarts playback. Keeping edits does not immediately save to flash. Otherwise tap to leave an edit mode; double-tap exits the sequencer.');
   put('PgUp','Seq on/off','transport','Double-tap to enter or exit the sequencer.');
   put('PgDn','Arm record','transport','Double-tap to arm or disarm recording. Armed notes are captured while transport runs.');
   put('Home','Start / stop','transport','Toggle transport from the start in master mode. Use DAW transport when following external clock.');
   for(let n=1;n<=12;n++)put(`F${n}`,`Track ${String(n).padStart(2,'0')}`,'track',`Select track ${n}. Hold a drum track and tap another track key to select its lane. Hold Tab + track for melodic, Caps + track for drum; confirm an active-track conversion with Y or cancel with N.`);
-  modifier(alt,'Euclid / bank','Hold for the installed module: Euclid controls or Chord Bank. Double-tap to latch Euclid.');
+  modifier(alt,'Euclid / bank','Hold for the installed module: Euclid controls or Chord Bank. Double-tap to latch Euclid; tap once to exit. Ctrl + tap while latched prints the melodic loop or selected drum lane to the track length and exits, disabling generation.');
   modifier(gui,'CC mode','Hold for CC mode; double-tap to latch. Hold Shift on entry for temporary changes that revert on exit.');
   put('Space','Navigation','modifier','Hold Space for navigation, mute, layout, saving and sync controls. Ctrl + Space edits the global scale; Ctrl + Shift + Space opens the UI harmony workshop.');
   if(['drum','melodic','chord','drum-edit','melodic-edit','chord-step'].includes(mode)){
@@ -55,15 +54,15 @@ export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit
     put('Del','Clear track','modifier','Hold Del + a track to clear its selected lane. Add both Shift keys to clear the whole drum track.');
   }
   if(mode==='euclid'){
-    modifier(alt,'Hold / latch','Hold to enter Euclid controls; double-tap to latch. Drum settings belong to the selected lane. While latched, hold the current track F key and tap another F key to choose a lane.');
+    modifier(alt,'Hold / latch','Hold to enter Euclid controls; double-tap to latch; tap once to exit. Drum settings belong to the selected lane. While latched, hold the current track F key and tap another F key to choose a lane.');
     for(const [key,label,detail] of (ordered? [['Q','Steps','Set Euclid step count.'],['W','Fills','Set the hit count.'],['E','Rotation','Set pattern rotation.'],['R','Probability','Set trigger probability. Shift uses ten-percent increments.'],['T','Accent','Alternate velocity boost and reduction, 0–48 MIDI velocity points.'],['F','Ratchet','Set the drum auto-ratchet threshold; zero disables it.']] : [['Q','Fills','Set the hit count. Shift + knob while fills is selected adjusts velocity swing.'],['W','Rotation','Set pattern rotation.'],['E','Steps','Set Euclid step count.'],['P','Probability','Set trigger probability. Shift uses ten-percent increments.'],['F','Ratchet','Set the auto-ratchet threshold; zero disables it.']]))put(key,label,'parameter',detail+' Select, then turn the knob.');
     put(ordered?'[':'R','Rotate −','parameter','Rotate one step backward.');put(ordered?']':'T','Rotate +','parameter','Rotate one step forward.');
     slots.slice(0,8).forEach((key,i)=>put(key,`Palette ${i+1}`,'note',`Alt / Option + ${key} pins playback to palette slot ${i+1}.`));
     put('0','Cycle notes','note','Alt / Option + 0 returns to cycling through the palette.');
     put('Tab','Capture','parameter','Alt / Option + Tab snapshots the current 16-step window into a Euclid template.');
     modifier(['LShift','RShift'],'Palette / fast','Alt / Option + Shift + melodic note keys captures up to eight palette notes. Also modifies knob changes.');
-    modifier(['Ctrl','RCtrl'],'Replace palette','Hold Ctrl + Shift + Alt / Option before tapping melodic notes to replace the palette on release. This leaves the UI capture choice unchanged.');
-    put('Del','Clear / reset','modifier','While Euclid is latched, hold Delete and double-tap Alt / Option to reset the selected generator, keeping recorded notes. Set Fills to zero to silence generated hits. On melody, Shift + Alt / Option + Delete clears the note palette.');
+    modifier(['Ctrl','RCtrl'],'Print / replace','While Euclid is latched, hold Ctrl and tap its button to print the melody or selected drum lane to the track length, disable its generator and exit. Short cycles repeat; long cycles are clipped. No Shift or other edits. Ctrl + Shift + Euclid + melodic notes still replaces the palette. Printing requires updated firmware.');
+    put('Del','Clear / reset','modifier','While Euclid is latched, hold Delete and double-tap Alt / Option to reset the selected generator, keeping recorded notes. Set Fills to zero to silence generated hits. On melody, hold the Euclid button + Delete and tap 1–8 to remove one palette slot. Shift + Alt / Option + Delete clears the whole palette.');
     put('Knob','Adjust','parameter','Turn to adjust the selected Euclid parameter.');
   }
   if(mode==='chord'){

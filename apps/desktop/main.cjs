@@ -108,6 +108,7 @@ async function smokeTest() {
     check(midi.sysex, 'MIDI SysEx permission');
     await window.webContents.executeJavaScript('window.seqDesktop.setCompact(true)');
     await window.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'smoke-preview.js'), 'utf8'));
+    check(await window.webContents.executeJavaScript("document.querySelector('#live-temp').dataset.temp === 'queued' && document.querySelector('#live-temp').textContent.includes('Shift + Esc')"), 'TEMP queue status and controls in compact view');
     window.setSize(520, 720);
     await new Promise(resolve => setTimeout(resolve, 150));
     check(await window.webContents.executeJavaScript('document.documentElement.scrollWidth <= innerWidth'), 'No horizontal overflow at the minimum width');

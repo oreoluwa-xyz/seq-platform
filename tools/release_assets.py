@@ -43,7 +43,11 @@ def prepare(tag, commit, artifacts, destination):
     (destination / 'release.json').write_text(json.dumps(manifest, indent=2) + '\n')
     sums = ''.join(f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n' for p in sorted(destination.iterdir()))
     (destination / 'SHA256SUMS').write_text(sums)
+    changes_path = ROOT / "docs/releases" / (tag + ".md")
+    changes = changes_path.read_text() if changes_path.exists() else ""
     return f'''SEQ {version} preview
+
+{changes}
 
 - Apple Silicon macOS app, with the Studio UI and manual.
 - Keychron V1 Max ANSI encoder firmware {identity['version']}.

@@ -33,3 +33,5 @@
 .desktop-performance #live-steps .live-step{padding:6px;min-height:38px;font-size:10px}
 .desktop-performance .live-notes{gap:8px}
 .desktop-performance #cc-dock{max-height:55vh;overflow:auto}
+
+.desktop-performance .temp-panel{padding:12px}.desktop-performance .temp-caption{display:none}.desktop-performance .temp-shortcuts{gap:8px 12px}

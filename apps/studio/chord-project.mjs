@@ -1,6 +1,6 @@
 import {scaleNotes,scaleNames} from './scale.mjs?v=bcc8228f15';
-import {decodeModule,encodeModule,defaultModule,composeModule} from './module.mjs?v=9e9d1bb338';
-import {chordLabel,scaleChordTypes,scaleChordNotes} from './chord-mode.mjs?v=baf320581a';
+import {decodeModule,encodeModule,defaultModule,composeModule} from './module.mjs?v=08f7f2e951';
+import {chordLabel,scaleChordTypes,scaleChordNotes} from './chord-mode.mjs?v=886590c057';
 const intervals=[[0,4,7],[0,3,7],[0,3,6],[0,4,8],[0,2,7],[0,5,7],[0,4,7,10],[0,4,7,11],[0,3,7,10],[0,3,6,10]];
 const integer=(n,min,max)=>Number.isInteger(n)&&n>=min&&n<=max;
 export function recipeNotes(c){

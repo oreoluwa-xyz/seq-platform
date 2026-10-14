@@ -1,5 +1,5 @@
-import {chordLabel} from './chord-mode.mjs?v=baf320581a';
-import {noteName} from './module.mjs?v=9e9d1bb338';
+import {chordLabel} from './chord-mode.mjs?v=886590c057';
+import {noteName} from './module.mjs?v=08f7f2e951';
 
 export function liveBarLabel(state){
   const start=state.bar*16+1,end=Math.min((state.bar+1)*16,state.length),playBar=Math.floor(state.step/16);

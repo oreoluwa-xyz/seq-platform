@@ -1,5 +1,18 @@
 Shared Drum Lane Storage
 
+## TEMP performance mode
+
+Hold **Enter** and tap **Esc** to capture a restore point for all tracks. Esc turns **purple** only after the complete snapshot fits. Release Enter, make your buildup changes, then tap **Esc** to restore the drop and leave TEMP. Playback stays on the current transport position; it does not restart. **Shift + Esc** queues restoration for the start of the next global 16-step bar. Esc blinks purple while queued. Press **Shift + Esc again** to cancel the queued restore and keep TEMP active (solid purple), extending the buildup. Press it again when ready to queue the next bar. Esc alone restores immediately, and Enter + Esc keeps the edits and cancels the queued restore. When stopped, Shift + Esc restores immediately; stopping playback with a restore queued also restores it.
+
+TEMP restores recorded notes and chords, drum hits and modifiers, mutes, loop lengths, Euclid palettes/settings, scales, accumulator state, tempo/swing, MIDI routing, CC values and automation. It restores the original selected track/view as well. The chord editor and ordinary polyphonic notes remain available.
+
+Finish held-key edits and disarm recording before entering TEMP. Recording and editing work normally after entry. To keep your changes, hold **Enter + tap Esc again**: TEMP exits, the purple light clears, and the current edits become the normal sequence. This discards the restore point without restarting playback or immediately saving to flash; normal saving resumes. A later TEMP captures this new version. Leaving sequencer mode also rolls back. Saves and project transfers are blocked during TEMP; live monitoring and edits remain available. External synthesizer changes made outside the keyboard cannot be restored.
+
+The snapshot has a bounded 7.25 KiB buffer shared with USB transfers. If the project is too large or an edit/transfer is busy, Esc gives the existing magenta capacity feedback and TEMP does not activate. There is no partial snapshot. TEMP is RAM-only and does not survive power-off.
+
+Chord-bank modules have been removed to make room for TEMP. Recorded chords and polyphonic notes are retained. Older saved tracks containing banks migrate to recorded-note playback; bank-generated playback and unprinted bank slots are no longer available. New bank installations are rejected. Studio can still use offline bank drafts to create recorded chord progressions.
+
+
   - Keep all 12 tracks and their 12 note-lane controls, with a shared
     pool of 48 lanes for stored steps and step modifiers. Use three
     lanes on one track and one or two on several others; allocation
@@ -57,7 +70,9 @@ Euclid Mode
 
   - Hold Alt/Option to peek at the Euclid layer for the focused track;
     double-tap that modifier to latch an edit session and keep the
-    Euclid controls on the encoder.
+    Euclid controls on the encoder. Tap the modifier once to exit a latched session.
+    The Euclid button glows amber when latched and cyan while held; its LED
+    follows the keyboard’s selected Mac/Windows layout.
   - Tap Q/W/E/R/T while the session is active for Steps, Fills,
     Rotation, Probability, or Accent—turn the encoder for fine or Shift-accelerated
     changes.
@@ -171,6 +186,9 @@ Euclid Mode
 
 Sync, Saving, and Capacity
 
+  - The default keyboard lighting is Solid Reactive Simple: pressed keys
+    light up in the selected color and fade out. Fn + Q still cycles effects;
+    a saved lighting choice takes precedence over this reset default.
   - Space + Home switches between internal MIDI master and external DAW
     follower. Home starts/stops internal playback; in follower mode use the
     DAW's MIDI Clock, Start, Stop, Continue, and Song Position messages.
@@ -178,7 +196,20 @@ Sync, Saving, and Capacity
     External mode does not echo clock or transport back to the DAW.
   - Space + encoder sets actual timing swing (0–50%). Master MIDI clock
     remains steady at 24 pulses per quarter note. Swing applies to internal
-    playback; external playback follows the incoming clock.
+    and external playback: odd steps are delayed, while even steps stay on
+    the common clock. Ratchets subdivide each step's actual swung duration.
+    Every allocated drum lane can play its full repeat count.
+  - Converting, clearing, or resizing a track during playback keeps it on
+    the shared transport. Its position follows the song step modulo its
+    current length, including non-bar lengths. Other tracks keep playing;
+    obsolete ratchets are cancelled only on the edited track.
+  - After a stalled scan, all tracks resume at the current step together;
+    missed steps and repeats are not replayed as bursts. Missed master clock
+    pulses trigger Stop/Song Position/Continue recovery at the next timely
+    straight-grid boundary. A following device must support those messages.
+  - USB MIDI messages are batched and queued without blocking step playback.
+    If the output queue fills, playback stops for all tracks and releases
+    receiver notes. Restart after the USB connection can drain the queue.
   - Space + Enter saves on board. Stopping playback or exiting also saves
     changes. Startup loads the last valid save. On-board storage is 3 KiB:
     if the complete project will not fit, the old save is preserved and Esc
@@ -211,9 +242,9 @@ While Space is held, Home glows amber for internal master or cyan for DAW follow
 
 ## Module Studio and interchangeable engines
 
-The sequencer now supports per-track **Euclid** and **Chord Bank** modules, with a local browser editor for JSON import/export, chord audition, device installation and project backup. Start with [the module guide](modules/README.md), which includes setup, keyboard gestures and AI authoring examples. Run `python3 -m http.server 8765 --bind 127.0.0.1` here and open `http://localhost:8765/ui/`.
+The sequencer supports per-track **Euclid** modules and a recorded-chord editor, with a local browser editor for JSON import/export, chord audition, device installation and project backup. Start with [the module guide](modules/README.md), which includes setup, keyboard gestures and AI authoring examples. Run `python3 -m http.server 8765 --bind 127.0.0.1` here and open `http://localhost:8765/ui/`.
 
-Module files configure built-in engines. New engine code still requires a firmware rebuild. Installing a module preserves patterns and automation; selecting Chord Bank on a drum track adds its melodic layer. Use **Save on-board** after installation for persistence, or retain a full computer backup when the project exceeds on-board capacity.
+Module files configure built-in engines. New engine code still requires a firmware rebuild. Installing a supported module preserves patterns and automation. Use **Save on-board** after installation for persistence, or retain a full computer backup when the project exceeds on-board capacity.
 
 
 ### Clear the melodic Euclid palette
@@ -231,7 +262,7 @@ While the sequencer is active, press **Ctrl + Space** to open Scale mode. Releas
 
 Open **Scale** in the hardware panel to choose root and mode visually, audition the pending scale using the browser sound, then Apply global. The header’s Sound mute applies to auditions. Global scale starts off, preserving older projects. Per-track choices are **Follow global**, **Local key / scale**, or **Unconstrained**, with nearest, downward or upward snapping. Nearest ties snap down; at MIDI boundaries the nearest in-range scale tone is used. Apply track commits those settings.
 
-Quantization runs after melodic pitch generation and the accumulator, without rewriting stored notes or palettes. Disabling it restores source pitches. Scale changes release affected sounding notes; playback then continues in the new scale. Drums and chord-bank voicings bypass it. Stored melodic chords are quantized voice by voice and duplicate output pitches share note ownership. Live step labels include quantization but remain before accumulator effects. Use Save or computer backup to persist global and track settings; standalone module files do not contain these host track settings. Old projects default to global off and Follow global; older firmware cannot load the new scale-setting extensions.
+Quantization runs after melodic pitch generation and the accumulator, without rewriting stored notes or palettes. Disabling it restores source pitches. Scale changes release affected sounding notes; playback then continues in the new scale. Drums bypass it. Stored melodic chords are quantized voice by voice and duplicate output pitches share note ownership. Live step labels include quantization but remain before accumulator effects. Use Save or computer backup to persist global and track settings; standalone module files do not contain these host track settings. Old projects default to global off and Follow global; older firmware cannot load the new scale-setting extensions.
 
 
 ### Create a complementary chord track
@@ -303,3 +334,25 @@ Drum lanes now own their Steps, Fills, Rotation, Probability, Accent and ratchet
 ### Desktop window
 
 Run the existing UI as a floating Electron window with Pin on top, remembered placement and a compact Performance view. On this Mac, open **Start SEQ.command**; setup and lifecycle details are in [desktop/README.md](desktop/README.md). No firmware update is required.
+
+### Remove one palette note
+
+Hold the **Euclid button + Delete**, without Shift, and tap **1–8** to remove that palette slot. The Euclid button is the same physical key used to open Euclid controls; on Windows layout with Mac keycaps it is the Command-labelled key beside Space. You can also click **Remove** beside a note in the live palette panel with updated firmware.
+
+Remaining slots close up in their existing order and keep their pitches. A pin follows its surviving note; deleting the pinned note resumes cycling. Removing the last note leaves an empty palette. Recorded step notes and rhythm settings remain. Finish capture, recording or step editing before removing notes. Save with **Space + Enter** to keep the change.
+
+A plain tap of the Euclid button exits a latched session. Holding it for palette capture, pinning, removal or knob edits keeps the session open. The existing **Delete + double-tap Euclid** generator-reset gesture remains available.
+
+### Print a Euclid loop
+
+While Euclid controls are latched, hold **Ctrl** and tap the **Euclid button**, then release Ctrl. On Windows layout with Mac keycaps, the Euclid button is the Command-labelled key beside Space. Do not hold Shift or use any other note/parameter controls during the gesture.
+
+This replaces the current melodic track's recorded notes with the generated **whole track loop**, disables Euclid and the accumulator, and exits to normal note editing. Playback keeps its current position. The printed events have one-step lengths and include palette cycling/pinning, recorded-note overrides, scale-quantized pitches and Euclid accents. Track volume and scale settings remain active. Palette and rhythm settings remain available for reuse.
+
+The destination always has the **current track length**. If the melodic Euclid cycle is longer, print only the portion inside the track. If it is shorter, repeat that cycle's pitches and recorded overrides until the track is filled, clipping the final repetition. For example, an 8-step cycle fills a 20-step track as 8 + 8 + 4 steps.
+
+On **drums**, Ctrl + Euclid prints generated hits into the **selected lane**, including existing manual hits. The lane's generator is disabled and the edit session exits; sibling lanes retain their patterns and generators. Existing per-step velocity and repeat edits are retained on printed hits. This prints hit positions, not Euclid's live probability, accent or auto-ratchet effects. Short rhythms repeat to the track length; longer rhythms are clipped. If no storage lane is available, the operation leaves the pattern unchanged and flashes Esc magenta.
+
+Printing captures the underlying pattern before probability skips, mutes and evolving accumulator movement; it does not record one randomized performance. Up to 128 note events fit, counting each chord voice. If the print would exceed that limit, Esc flashes magenta and the original notes and Euclid mode remain unchanged. Finish recording, step editing, chord/palette capture and project transfers first. This shortcut supports melodic Euclid tracks and the selected drum lane, but not Chord Bank tracks.
+
+You can now add notes between the printed hits, remove notes, or edit their pitches, velocities and lengths. **Space + Enter** saves the result. Plain Euclid tap still only exits the controls; **Ctrl + Shift + Euclid + note keys** still replaces the palette.

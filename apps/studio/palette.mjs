@@ -1,4 +1,4 @@
-import {noteName} from './module.mjs?v=9e9d1bb338';
+import {noteName} from './module.mjs?v=08f7f2e951';
 export const offsetLabel=offset=>`${offset>=0?'+':''}${offset}`;
 export function paletteShortcut(os){
   return os==='win'?'Windows layout: hold Shift + Alt (the Command-labelled key next to Space if you have Mac keycaps).':os==='mac'?'Mac layout: hold Shift + Option.':'Hold Shift + the keyboard’s Alt/Option key; its keycap depends on the selected hardware layout.';
@@ -6,7 +6,7 @@ export function paletteShortcut(os){
 export function paletteVisible(state){
   return !!state?.active && state.type!==0 && !state.child && state.engine===0 && state.visual?.mode==='euclid';
 }
-export function renderPalette(root,state,ready,onMode,onCaptureMode){
+export function renderPalette(root,state,ready,onMode,onCaptureMode,onRemove){
   root.hidden=!paletteVisible(state);
   root.closest('.hardware-rhythm')?.classList.toggle('without-palette',root.hidden);
   if(root.hidden)return;
@@ -26,7 +26,13 @@ export function renderPalette(root,state,ready,onMode,onCaptureMode){
       const index=document.createElement('small');index.textContent=`${i+1}${!pending&&p.pin===i?' / PIN':''}`;
       const note=document.createElement('strong');note.textContent=entry?noteName(entry.note):'—';
       const offset=document.createElement('span');offset.textContent=entry?(p.mode==='transpose'?`${offsetLabel(entry.offset)} st`:''):'';
-      item.append(index,note,offset);row.append(item);
+      item.append(index,note,offset);
+      if(entry&&!pending&&p.removeSupported){
+        const remove=document.createElement('button');remove.textContent='Remove';remove.className='palette-remove';
+        remove.setAttribute('aria-label',`Remove ${noteName(entry.note)} from palette slot ${i+1}`);
+        remove.disabled=!ready||p.capturing;remove.onclick=()=>onRemove?.(i);item.append(remove);
+      }
+      row.append(item);
     }
   }
   if(p.captureEditable){
@@ -50,6 +56,12 @@ export function renderPalette(root,state,ready,onMode,onCaptureMode){
   }else{add('h4',p.mode==='palette'?'Notes for generated hits':'Transposition palette');slots(p.saved,false);}
   const help=add('details','','palette-help');help.open=helpOpen;
   const summary=document.createElement('summary');summary.textContent='Capture shortcut & how notes are applied';help.append(summary);
-  for(const text of [paletteShortcut(state.visual?.os)+(p.clearShortcut?' While holding those modifiers, tap Delete to clear the palette and discard pending notes. Recorded step notes remain.':'')+(p.replaceShortcut?' Add Ctrl before the first note to replace for this capture only. The untouched starter note is replaced automatically on your first capture.':'')+(p.captureEditable?' Add notes keeps your palette, appends unique pitches into free slots and preserves a pinned slot. Replace starts a fresh palette and resumes cycling. Release the modifier to apply.':' Tap up to eight melodic notes, then release the modifier to replace the saved palette. Update firmware for Add notes.'),p.mode==='palette'?'Generated hits cycle through these notes. Recorded notes override the palette on their steps. Use palette on a step removes that override; sustained notes are preserved on surrounding steps. Octave controls move the palette register.':'Each slot adds its offset to the recorded or last-picked notes. The first captured note defines zero transposition. Choose Palette notes to play the named pitches instead.']){const paragraph=document.createElement('p');paragraph.textContent=text;help.append(paragraph);}
+  for(const text of [paletteShortcut(state.visual?.os)+(p.removeSupported?' To remove one slot, hold the Euclid button + Delete (without Shift), then tap 1–8. Slots close up after removal.':'')+(p.clearShortcut?' While holding those modifiers, tap Delete to clear the palette and discard pending notes. Recorded step notes remain.':'')+(p.replaceShortcut?' Add Ctrl before the first note to replace for this capture only. The untouched starter note is replaced automatically on your first capture.':'')+(p.captureEditable?' Add notes keeps your palette, appends unique pitches into free slots and preserves a pinned slot. Replace starts a fresh palette and resumes cycling. Release the modifier to apply.':' Tap up to eight melodic notes, then release the modifier to replace the saved palette. Update firmware for Add notes.'),p.mode==='palette'?'Generated hits cycle through these notes. Recorded notes override the palette on their steps. Use palette on a step removes that override; sustained notes are preserved on surrounding steps. Octave controls move the palette register.':'Each slot adds its offset to the recorded or last-picked notes. The first captured note defines zero transposition. Choose Palette notes to play the named pitches instead.']){const paragraph=document.createElement('p');paragraph.textContent=text;help.append(paragraph);}
 
+}
+
+export function paletteRemovePayload(palette,index){
+  if(!palette?.removeSupported||!Number.isInteger(index)||index<0||index>=palette.saved.length)throw Error('Invalid palette slot.');
+  const payload=new Uint8Array(12);payload.set([3,index,palette.saved.length,palette.root]);
+  payload.set(palette.saved.map(entry=>entry.offset&255),4);return payload;
 }

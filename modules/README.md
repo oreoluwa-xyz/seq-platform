@@ -1,5 +1,7 @@
 # Interchangeable track modules
 
+**Current firmware:** chord-bank modules were removed for TEMP performance snapshots. Use Euclid/track notes or the recorded-chord editor. Bank files and examples below remain useful as offline harmony drafts for producing recorded notes; bank installation/performance instructions apply only to older firmware.
+
 Module Studio configures one built-in engine per track: Euclid or Chord Bank. The 12-track facade, shared 48 drum lanes, MIDI routing, recorded notes, automation, transport and project storage remain core services. Installing a module preserves track contents. Chord Bank adds a melodic layer if the destination is a drum track, preserving its drum lanes.
 
 Modules import **declarative JSON configuration**, not executable JavaScript or C. Version 1 engine files remain supported. Version 2 composes independent, versioned rhythm and pitch components; start with [Four chord pulses](examples/four-chord-pulses.json). See [Component contracts and evolution](COMPONENTS.md) for supported combinations, resource limits and compatibility. Components are compiled into firmware and share fixed per-track storage; swapping modules does not unload code. New component algorithms still require firmware development and a rebuild.

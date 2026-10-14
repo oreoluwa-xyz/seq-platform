@@ -1,18 +1,19 @@
-import {setupFirmware,verifyFirmware} from './firmware.mjs?v=0909726d62';
-import {decodeProjectScale,sameScale} from './chord-project.mjs?v=e15e8ae07f';
-import {renderChordMode} from './chord-mode.mjs?v=baf320581a';
-import {harmonyRequestChanged} from './harmony.mjs?v=54cddb1a55';
-import {setupHarmony} from './harmony-editor.mjs?v=d6effc6079';
-import {renderCC} from './cc.mjs?v=0a5209c1d7';
+import {renderTemp} from './temp.mjs';
+import {setupFirmware,verifyFirmware} from './firmware.mjs?v=cdb10208e0';
+import {decodeProjectScale,sameScale} from './chord-project.mjs?v=6c6f346c5c';
+import {renderChordMode} from './chord-mode.mjs?v=886590c057';
+import {harmonyRequestChanged} from './harmony.mjs?v=a92972a827';
+import {setupHarmony} from './harmony-editor.mjs?v=f9d12cc709';
+import {renderCC} from './cc.mjs?v=9e1b563d8a';
 import {renderScale,renderScaleModal} from './scale.mjs?v=bcc8228f15';
 import {renderRhythmControls,rhythmEditPayload} from './rhythm-controls.mjs';
-import {renderPalette} from './palette.mjs?v=b8b75dd74e';
-import {renderHardwareOrbit} from './orbit.mjs?v=966d1d5b6f';
-import {setupManual} from './manual.mjs?v=724c28f319';
-import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,noteName,parseNotes,euclidHit} from './module.mjs?v=9e9d1bb338';
-import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=3ac1a6b240';
-import {LiveMonitor} from './live.mjs?v=caeba54191';
-import {renderLiveSteps,liveBarLabel} from './steps.mjs?v=340bbf5df3';
+import {renderPalette,paletteRemovePayload} from './palette.mjs?v=d934a0c35a';
+import {renderHardwareOrbit} from './orbit.mjs?v=b14d15f367';
+import {setupManual} from './manual.mjs?v=17e7ffad90';
+import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,noteName,parseNotes,euclidHit} from './module.mjs?v=08f7f2e951';
+import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=6bb2561018';
+import {LiveMonitor} from './live.mjs?v=79937b2913';
+import {renderLiveSteps,liveBarLabel} from './steps.mjs?v=0df1ccd105';
 const $=id=>document.getElementById(id), number=i=>String(i+1).padStart(2,'0');
 if(document.querySelector('meta[name="seq-hosting"][content="static"]')) {
   const status=document.querySelector('.workspace-status');
@@ -28,7 +29,7 @@ let selected=0, connection=null, access=null, capabilities=null, busy=false, toa
 let previewMuted=false,previewGeneration=0;
 const previewVoices=new Set();
 try{previewMuted=localStorage.getItem('seq-preview-muted')==='true';}catch{}
-let tracks=Array.from({length:12},(_,i)=>({engine:i===0?'chord-bank':'euclid',drafts:{euclid:defaultModule('euclid'),'chord-bank':defaultModule('chord-bank')}}));
+let tracks=Array.from({length:12},(_,i)=>({engine:'euclid',drafts:{euclid:defaultModule('euclid'),'chord-bank':defaultModule('chord-bank')}}));
 try {
   const saved=JSON.parse(localStorage.getItem('seq-module-studio-v1')||'null');
   if(Array.isArray(saved)&&saved.length===12) tracks=saved.map(t=>{const parsed={engine:['euclid','chord-bank'].includes(t.engine)?t.engine:'euclid',rhythm:t.rhythm||null,drafts:{euclid:validateModule(t.drafts.euclid),'chord-bank':validateModule(t.drafts['chord-bank'])}};if(parsed.rhythm)composeModule(parsed.drafts[parsed.engine],parsed.rhythm);return parsed;});
@@ -129,12 +130,17 @@ function renderRhythm(){
 }
 function render(){
   const m=draft(),c=m.config,chords=m.engine==='chord-bank';renderTracks();
+  for(const card of document.querySelectorAll('.module-card[data-engine="chord-bank"]')) {
+    card.disabled=!!capabilities && !(capabilities[6]&2);
+    card.title=card.disabled?'Chord banks were removed from this firmware. Recorded chords remain available.':'';
+  }
+  $('bank-compatibility').hidden=!capabilities || !!(capabilities[6]&2);
   renderLive();
   $('track-crumb').textContent=`TRACK ${number(selected)}`;
   $('track-display').textContent=number(selected);
   $('engine-title').innerHTML=chords?'Chord bank<span>.</span>':'Euclid<span>.</span>';
   $('engine-category').textContent=chords?'HARMONIC INSTRUMENT':'RHYTHMIC INSTRUMENT';
-  $('engine-subtitle').textContent=chords?'Twelve voicings, right at your fingertips.':'Find the pulse. Shift the possibilities.';
+  $('engine-subtitle').textContent=chords?'Offline voicings for the Harmony workshop.':'Find the pulse. Shift the possibilities.';
   $('export').textContent=chords?'Export bank ↗':'Export pattern ↗';
   document.body.dataset.engine=m.engine;
   document.querySelectorAll('.module-card[data-engine]').forEach(button=>{const active=button.dataset.engine===m.engine;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});
@@ -145,7 +151,7 @@ function render(){
     $('transpose').value=c.transpose;$('inversion').value=c.inversion;
     $('chord-grid').replaceChildren(...c.slots.map((slot,i)=>{
       const button=document.createElement('button');button.className=`chord-slot${i===c.selected?' active':''}`;button.setAttribute('aria-pressed',String(i===c.selected));button.setAttribute('aria-label',`Slot ${i+1}: ${slot.name}`);
-      const key=document.createElement('span'),title=document.createElement('strong'),notes=document.createElement('small');key.className='slot-key';key.textContent=`${number(i)} · ALT ${['1','2','3','4','5','6','7','8','9','0','−','='][i]}`;title.textContent=slot.name;notes.textContent=chordNotes(m,i).map(noteName).join(' · ')||'Empty slot';const bars=document.createElement('span');bars.className='pad-spectrum';bars.setAttribute('aria-hidden','true');
+      const key=document.createElement('span'),title=document.createElement('strong'),notes=document.createElement('small');key.className='slot-key';key.textContent=`DRAFT ${number(i)}`;title.textContent=slot.name;notes.textContent=chordNotes(m,i).map(noteName).join(' · ')||'Empty slot';const bars=document.createElement('span');bars.className='pad-spectrum';bars.setAttribute('aria-hidden','true');
       const pitches=new Set(chordNotes(m,i).map(n=>n%12));
       for(let pitch=0;pitch<12;pitch++){const bar=document.createElement('i');bar.className=pitches.has(pitch)?'sounding':'';bar.style.setProperty('--bar-height',`${[35,52,72,44,88,57,38,77,48,95,65,42][pitch]}%`);bars.append(bar);}
       button.append(key,bars,title,notes);button.onclick=event=>{edit(next=>next.config.selected=i);if(event.detail===0)$('chord-grid').children[i]?.focus({preventScroll:true});};return button;
@@ -154,11 +160,11 @@ function render(){
     $('voicing').replaceChildren(...chordNotes(m).map(note=>{const tag=document.createElement('span');tag.textContent=noteName(note);return tag;}));
     renderPiano(chordNotes(m));
     $('preview').disabled=previewMuted||!slot.notes.length;
-    $('mapping').innerHTML='<span><kbd>Alt + 1…=</kbd> Audition / select</span><span><kbd>Alt + step</kbd> Stamp chord</span><span><kbd>Alt + encoder</kbd> Transpose</span><span><kbd>+ Shift</kbd> Inversion</span>';
+    $('mapping').textContent='Offline chord drafts · use the Harmony workshop to create recorded, editable notes. Bank performance requires older firmware.';
   }else{
-    $('mapping').innerHTML='<span><kbd>Alt</kbd> Module controls</span><span><kbd>Q / W / E</kbd> Hits / rotation / steps</span><span><kbd>Encoder</kbd> Adjust</span><span><kbd>Alt + Tab</kbd> Capture rhythm</span>';
+    $('mapping').innerHTML='<span><kbd>Alt</kbd> Module controls</span><span><kbd>Q / W / E</kbd> Steps / fills / rotation</span><span><kbd>Encoder</kbd> Adjust</span><span><kbd>Alt + Tab</kbd> Capture rhythm</span>';
   }
-  $('read').disabled=$('install').disabled=$('backup').disabled=$('save').disabled=!connection||busy;
+  updateTransferControls();
   renderComposer();
   renderRhythm();
   manual?.refresh();
@@ -269,7 +275,16 @@ function startLive(device){
     renderLive();
   }});liveMonitor.start();
 }
+function updateTransferControls(){
+  const blocked=!!liveState?.temp?.active;
+  for(const id of ['read','install','backup','save']) {
+    $(id).disabled=!connection||busy||blocked||(id==='install'&&draft().engine==='chord-bank'&&capabilities&&!(capabilities[6]&2));
+    $(id).title=blocked?'Keep or restore TEMP on the keyboard before saving or transferring.':'';
+  }
+}
 function renderLive(){
+  renderTemp($('live-temp'),liveState,liveReady);
+  updateTransferControls();
   $('harmony-open').title='Harmony workshop · Ctrl + Shift + Space';
   $('harmony-open').disabled=busy;
   $('live-track-mode').disabled=busy||!liveReady||!liveState?.active||!liveState?.chordSupported;
@@ -296,7 +311,7 @@ function renderLive(){
   renderRhythmControls($('live-euclid-settings'),s,liveReady&&!busy,editLiveRhythm);
   $('live-euclid-settings').hidden=!!s.chordMode?.enabled;
   $('hardware-orbit-caption').textContent=`LIVE KEYBOARD · VIEWED 16 STEPS · ${s.projectedNotes?'Projected notes before probability, mutes and accumulator':'Stored note labels'} · Center: sampled sound`;
-  renderPalette($('live-palette'),s,liveReady&&!busy,mode=>editLivePitch(s.track,0,Uint8Array.of(0,mode==='transpose'?1:0)),replace=>editLivePitch(s.track,0,Uint8Array.of(2,Number(replace))));
+  renderPalette($('live-palette'),s,liveReady&&!busy,mode=>editLivePitch(s.track,0,Uint8Array.of(0,mode==='transpose'?1:0)),replace=>editLivePitch(s.track,0,Uint8Array.of(2,Number(replace))),index=>editLivePitch(s.track,0,paletteRemovePayload(s.palette,index)));
   renderHardwareOrbit($('hardware-orbit'),s,liveReady&&!busy);
   $('live-step-caption').textContent=renderLiveSteps($('live-steps'),s,liveReady&&!busy,step=>editLivePitch(s.track,step,Uint8Array.of(1)));
   for(const [id,notes] of [['live-selected',s.selected],['live-sounding',liveReady?s.sounding:[]]]){
@@ -335,7 +350,7 @@ async function editLiveRhythm(track,context,field,value,expected){
 async function editLivePitch(track,step,payload){
   if(!connection||busy||!liveReady||!liveState?.palette?.editable)return;
   busy=true;renderLive();await liveMonitor.pause();
-  try{await connection.request(18,track,step,payload);notice(payload[0]===2?(payload[1]?'Next capture will replace the palette.':'Next capture will add notes to free slots.'):payload[0]?`Step ${step+1} now uses the palette.`:payload[1]?'Transpose phrase selected.':'Palette notes selected.');}
+  try{await connection.request(18,track,step,payload);notice(payload[0]===3?'Palette note removed. Save on the keyboard to keep it.':payload[0]===2?(payload[1]?'Next capture will replace the palette.':'Next capture will add notes to free slots.'):payload[0]?`Step ${step+1} now uses the palette.`:payload[1]?'Transpose phrase selected.':'Palette notes selected.');}
   catch(error){notice(error.status===2?'Keyboard changed track or is editing. Finish the edit and try again.':error.status===4?'No room to split this sustained note. Free an event and try again.':error.message,true);}
   finally{busy=false;liveMonitor.resume();renderLive();}
 }
@@ -344,6 +359,7 @@ document.addEventListener('focusout',()=>setTimeout(()=>{
   if(queuedHardwareState&&liveReady&&$('live-follow').checked&&!busy&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select')){selected=liveState.track;queuedHardwareState=null;render();}
 },0));
 async function operation(fn){
+  if(liveState?.temp?.active){notice('Keep or restore TEMP on the keyboard before saving or transferring.',true);return;}
   if(!connection||busy)return;busy=true;document.body.classList.add('busy');document.querySelector('.app-shell').inert=true;$('connect').disabled=true;const device=connection;
   renderLive();
   await liveMonitor?.pause();
@@ -452,6 +468,7 @@ async function firmwareMidiTask(fn){
 setupFirmware({button:$('firmware-open'),dialog:$('firmware-dialog'),connected:()=>!!connection,
   backup:()=>firmwareMidiTask(async device=>{
     if(!device)throw Error('Connect the keyboard normally before backing up.');
+    if(liveState?.temp?.active)throw Error('Keep or restore TEMP before backing up or installing firmware.');
     try{await backup(device,'seq-before-firmware');}finally{await device.finish();}
   }),
   disconnect:()=>firmwareMidiTask(async device=>{

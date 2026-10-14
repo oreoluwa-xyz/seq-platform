@@ -1,4 +1,17 @@
 **Sequencer Manual**
+
+## TEMP performance mode
+
+Hold **Enter** and tap **Esc** to capture a restore point for all tracks. Esc turns **purple** only after the complete snapshot fits. Release Enter, make your buildup changes, then tap **Esc** to restore the drop and leave TEMP. Playback stays on the current transport position; it does not restart. **Shift + Esc** queues restoration for the start of the next global 16-step bar. Esc blinks purple while queued. Press **Shift + Esc again** to cancel the queued restore and keep TEMP active (solid purple), extending the buildup. Press it again when ready to queue the next bar. Esc alone restores immediately, and Enter + Esc keeps the edits and cancels the queued restore. When stopped, Shift + Esc restores immediately; stopping playback with a restore queued also restores it.
+
+TEMP restores recorded notes and chords, drum hits and modifiers, mutes, loop lengths, Euclid palettes/settings, scales, accumulator state, tempo/swing, MIDI routing, CC values and automation. It restores the original selected track/view as well. The chord editor and ordinary polyphonic notes remain available.
+
+Finish held-key edits and disarm recording before entering TEMP. Recording and editing work normally after entry. To keep your changes, hold **Enter + tap Esc again**: TEMP exits, the purple light clears, and the current edits become the normal sequence. This discards the restore point without restarting playback or immediately saving to flash; normal saving resumes. A later TEMP captures this new version. Leaving sequencer mode also rolls back. Saves and project transfers are blocked during TEMP; live monitoring and edits remain available. External synthesizer changes made outside the keyboard cannot be restored.
+
+The snapshot has a bounded 7.25 KiB buffer shared with USB transfers. If the project is too large or an edit/transfer is busy, Esc gives the existing magenta capacity feedback and TEMP does not activate. There is no partial snapshot. TEMP is RAM-only and does not survive power-off.
+
+Chord-bank modules have been removed to make room for TEMP. Recorded chords and polyphonic notes are retained. Older saved tracks containing banks migrate to recorded-note playback; bank-generated playback and unprinted bank slots are no longer available. New bank installations are rejected. Studio can still use offline bank drafts to create recorded chord progressions.
+
 This manual describes the current feature set for the seq_test sequencer keymap on the Keychron V1 Max (ANSI encoder).
 
 **Key Groups**
@@ -10,7 +23,7 @@ This manual describes the current feature set for the seq_test sequencer keymap 
 | Melodic note keys | `Q 2 W 3 E R 5 T 6 Y 7 U` | Sharps are on the number row. |
 | Melodic control keys | `1` (octave down), `4` (rest/tie), `8` (octave up) | Used in melodic mode. |
 | Sequencer switch | `Space` | Navigation and layout controls. |
-| Euclid modifier | `Alt/Option` | Hold for Euclid controls, double-tap to latch. |
+| Euclid modifier | `Alt/Option` | Hold for Euclid controls, double-tap to latch, tap once to exit. |
 | CC modifier | `Cmd/Win` (GUI) | Hold for CC mode, double-tap to latch. |
 | CC toggle key | `\` | Toggle latched CC mode. |
 
@@ -59,7 +72,7 @@ This manual describes the current feature set for the seq_test sequencer keymap 
 8. `Tab` + `=` doubles the track’s exact step length, copying all its lanes, step modifiers, melodic events, and CC points into the new region. Add both Shift keys to leave the new region blank. An edit that exceeds event or modifier capacity is rejected.
 
 **Euclid Mode**
-1. Hold `Alt/Option` to peek at Euclid controls for the focused track. Double-tap to latch the session.
+1. Hold `Alt/Option` to peek at Euclid controls for the focused track. Double-tap to latch the session; tap once to exit.
 2. Tap `Q` Steps, `W` Fills, `E` Rotation, `R` Probability, or `T` Accent, then turn the encoder. Hold `Shift` for accelerated changes.
 3. Tap `[` or `]` to rotate by -1 or +1 without leaving performance grip.
 4. Tap `T` and turn the encoder for Accent (0–48 MIDI velocity points, alternating boost/reduction). Shift accelerates changes; Shift + W + knob remains an alternate Accent gesture.
@@ -207,7 +220,6 @@ While Space is held, Home glows amber for internal master or cyan for DAW follow
 
 ## Interchangeable track modules
 
-[Module Studio](modules/README.md) edits and installs Euclid or Chord Bank settings per track. Chord Bank offers 12 slots of up to eight notes: hold Alt/Option and `1…0,-,=` to select/audition, Alt + step to stamp, Alt + encoder to transpose, and Alt + Shift + encoder for inversion. While armed and running, bank keys record with the configured duration. Release ends audition; stamped notes stay recorded. Module changes preserve track contents. See the linked guide for backup, import format and capacity behavior.
 
 
 ## UI manual and live view
@@ -218,7 +230,7 @@ The hardware panel shows the keyboard's track, type, installed module, transport
 
 ## Visual keyboard guide
 
-Open the manual with `Cmd` + `/` (or `Ctrl` + `/`) and choose **Keyboard map**. The V1 Max ANSI model shows the physical keys and knob. Switch among drum, melodic, Euclid, Chord Bank, CC, navigation, and step-edit views; select any key for its gesture. Arrow keys move between keys after the map has focus. Choose Mac or Windows to match modifier positions. The optional 4×4 grid applies to the drum view; melodic steps always use two rows.
+Open the manual with `Cmd` + `/` (or `Ctrl` + `/`) and choose **Keyboard map**. The V1 Max ANSI model shows the physical keys and knob. Switch among drum, melodic, Euclid, CC, navigation, and step-edit views; select any key for its gesture. Arrow keys move between keys after the map has focus. Choose Mac or Windows to match modifier positions. The optional 4×4 grid applies to the drum view; melodic steps always use two rows.
 
 Enable **Follow keyboard** for the live view. With visual-state firmware, the map follows the hardware mode, Mac/Windows modifier layout, and drum grid. Colored strips on the keys mirror the firmware LED buffer. The focused track, recorded steps, playhead, selected pitches/chord slot, sounding pitch classes, recording arm, and transport also have live markers. Notes are marked by pitch class, not as physical key-down events.
 
@@ -240,15 +252,15 @@ In the keyboard diagram, melodic step keys show the first note and a remaining-n
 
 In **How this track plays**, choose **When notes play**, then **Which notes play**. These answer two separate musical questions: when should a note start, and which note or chord should you hear?
 
-**Euclidean pulses** spaces hits around the loop. **Follow recorded steps** uses the timing of notes already recorded on the track. Choose **Chord bank** to supply a selected chord, or **Track notes + palette** to choose palette pitches with recorded overrides, or transposition of recorded/picked notes.
+**Euclidean pulses** spaces hits around the loop. **Follow recorded steps** uses the timing of notes already recorded on the track. Choose **Track notes + palette** to choose palette pitches with recorded overrides, or transposition of recorded/picked notes.
 
-**Use chord-bank performance** lets you audition, select and stamp chords using the bank controls; playback follows your recorded notes. **Use Euclid instrument** keeps the Euclid rhythm and palette together as one instrument, including its existing keyboard controls and accumulator. These choices describe the built-in instruments; they do not require knowledge of an earlier platform version.
+**Use Euclid instrument** keeps the Euclid rhythm and palette together as one instrument, including its existing keyboard controls and accumulator. These choices describe the built-in instruments; they do not require knowledge of an earlier platform version.
 
 Exporting a combination saves a version 2 composition; importing or reading it restores timing and notes together.
 
 For Euclidean chords, choose a bank slot and set the pulse count. Every pulse plays that selected chord with a one-step gate; its slot length still controls stamping, not the generated gate. On the keyboard, Alt/Option + number selects/auditions a bank slot and Alt/Option + step stamps it. Configure the composed chord rhythm in the UI, then install; Alt remains the bank controls.
 
-Follow recorded steps + Chord bank uses recorded melodic note starts as triggers for the selected chord. Follow recorded steps + Track notes plays the original sustained phrase. Euclid + Stored notes retains the note-span/palette behavior described above. Compositions preserve source notes; choose Follow recorded steps + Track notes to hear the recorded phrase with its full note lengths. The legacy accumulator is inactive in compositions until it becomes an explicit component. Drum ratchets cannot be combined with the chord-bank pitch component.
+Follow recorded steps + Track notes plays the original sustained phrase. Euclid + Stored notes retains the note-span/palette behavior described above. Compositions preserve source notes; choose Follow recorded steps + Track notes to hear the recorded phrase with its full note lengths. The legacy accumulator is inactive in compositions until it becomes an explicit component.
 
 Live module readouts identify the rhythm and pitch source together. Step-note cards continue to show stored source notes; **Selected on keyboard** and **Sounding now** show the bank selection and sampled output. Updated firmware is required for compositions. The UI checks supported component versions and size limits before installation.
 
@@ -305,7 +317,7 @@ While the sequencer is active, press **Ctrl + Space** to open Scale mode. Releas
 
 Open **Scale** in the hardware panel to choose root and mode visually, audition the pending scale using the browser sound, then Apply global. The header’s Sound mute applies to auditions. Global scale starts off, preserving older projects. Per-track choices are **Follow global**, **Local key / scale**, or **Unconstrained**, with nearest, downward or upward snapping. Nearest ties snap down; at MIDI boundaries the nearest in-range scale tone is used. Apply track commits those settings.
 
-Quantization runs after melodic pitch generation and the accumulator, without rewriting stored notes or palettes. Disabling it restores source pitches. Scale changes release affected sounding notes; playback then continues in the new scale. Drums and chord-bank voicings bypass it. Stored melodic chords are quantized voice by voice and duplicate output pitches share note ownership. Live step labels include quantization but remain before accumulator effects. Use Save or computer backup to persist global and track settings; standalone module files do not contain these host track settings. Old projects default to global off and Follow global; older firmware cannot load the new scale-setting extensions.
+Quantization runs after melodic pitch generation and the accumulator, without rewriting stored notes or palettes. Disabling it restores source pitches. Scale changes release affected sounding notes; playback then continues in the new scale. Drums bypass it. Stored melodic chords are quantized voice by voice and duplicate output pitches share note ownership. Live step labels include quantization but remain before accumulator effects. Use Save or computer backup to persist global and track settings; standalone module files do not contain these host track settings. Old projects default to global off and Follow global; older firmware cannot load the new scale-setting extensions.
 
 
 ### Create a complementary chord track
@@ -450,3 +462,25 @@ Firmware updates reboot the keyboard and discard unsaved RAM changes. On-board s
 The UI needs the local service instead of a plain file server. From the `seq_test` folder, run `python3 tools/seq_server.py serve`, then open `http://localhost:8765/ui/`. On macOS the service uses dfu-util bundled in QMK Toolbox; otherwise it uses dfu-util from PATH. It binds only to this computer.
 
 Build registration is a maintainer action, not a module import. Run `python3 tools/seq_server.py register /path/to/firmware.bin --target keychron/v1_max/ansi_encoder:seq_test --label "Release name"`. Only register a trusted image built for this exact board. The service checks its bounds, reset vectors and checksum, then stores a copy under `.build/firmware/`. These checks protect integrity; they do not authenticate the publisher. Previous registered releases remain available to download or reinstall.
+
+### Remove one palette note
+
+Hold the **Euclid button + Delete**, without Shift, and tap **1–8** to remove that palette slot. The Euclid button is the same physical key used to open Euclid controls; on Windows layout with Mac keycaps it is the Command-labelled key beside Space. You can also click **Remove** beside a note in the live palette panel with updated firmware.
+
+Remaining slots close up in their existing order and keep their pitches. A pin follows its surviving note; deleting the pinned note resumes cycling. Removing the last note leaves an empty palette. Recorded step notes and rhythm settings remain. Finish capture, recording or step editing before removing notes. Save with **Space + Enter** to keep the change.
+
+A plain tap of the Euclid button exits a latched session. Holding it for palette capture, pinning, removal or knob edits keeps the session open. The existing **Delete + double-tap Euclid** generator-reset gesture remains available.
+
+### Print a Euclid loop
+
+While Euclid controls are latched, hold **Ctrl** and tap the **Euclid button**, then release Ctrl. On Windows layout with Mac keycaps, the Euclid button is the Command-labelled key beside Space. Do not hold Shift or use any other note/parameter controls during the gesture.
+
+This replaces the current melodic track's recorded notes with the generated **whole track loop**, disables Euclid and the accumulator, and exits to normal note editing. Playback keeps its current position. The printed events have one-step lengths and include palette cycling/pinning, recorded-note overrides, scale-quantized pitches and Euclid accents. Track volume and scale settings remain active. Palette and rhythm settings remain available for reuse.
+
+The destination always has the **current track length**. If the melodic Euclid cycle is longer, print only the portion inside the track. If it is shorter, repeat that cycle's pitches and recorded overrides until the track is filled, clipping the final repetition. For example, an 8-step cycle fills a 20-step track as 8 + 8 + 4 steps.
+
+On **drums**, Ctrl + Euclid prints generated hits into the **selected lane**, including existing manual hits. The lane's generator is disabled and the edit session exits; sibling lanes retain their patterns and generators. Existing per-step velocity and repeat edits are retained on printed hits. This prints hit positions, not Euclid's live probability, accent or auto-ratchet effects. Short rhythms repeat to the track length; longer rhythms are clipped. If no storage lane is available, the operation leaves the pattern unchanged and flashes Esc magenta.
+
+Printing captures the underlying pattern before probability skips, mutes and evolving accumulator movement; it does not record one randomized performance. Up to 128 note events fit, counting each chord voice. If the print would exceed that limit, Esc flashes magenta and the original notes and Euclid mode remain unchanged. Finish recording, step editing, chord/palette capture and project transfers first. This shortcut supports melodic Euclid tracks and the selected drum lane, but not Chord Bank tracks.
+
+You can now add notes between the printed hits, remove notes, or edit their pitches, velocities and lengths. **Space + Enter** saves the result. Plain Euclid tap still only exits the controls; **Ctrl + Shift + Euclid + note keys** still replaces the palette.

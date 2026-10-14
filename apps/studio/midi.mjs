@@ -1,4 +1,4 @@
-import {checksum} from './module.mjs?v=9e9d1bb338';
+import {checksum} from './module.mjs?v=08f7f2e951';
 const PREFIX=[0xF0,0x7D,83,69,81,1];
 export class SequencerConnection {
   constructor(input,output) { this.input=input; this.output=output; this.pending=null; this.sysex=[]; this.receivedBytes=0; this.listener=e=>this.receive(e.data); input.addEventListener('midimessage',this.listener); }
@@ -41,7 +41,7 @@ export class SequencerConnection {
       catch(error){this.pending.fail(error);}
     });
   }
-  async capabilities(){const c=await this.request(10);if(c.length!==21||c[0]!==1||c[1]!==12||c[2]!==12||c[3]!==8||c[6]!==3) throw Error('Firmware module capabilities are incompatible.');try{c.components=await this.request(15);}catch(error){if(error.status!==1)throw error;c.components=null;}return c;}
+  async capabilities(){const c=await this.request(10);if(c.length!==21||c[0]!==1||c[1]!==12||![0,12].includes(c[2])||c[3]!==8||![1,3].includes(c[6])) throw Error('Firmware module capabilities are incompatible.');try{c.components=await this.request(15);}catch(error){if(error.status!==1)throw error;c.components=null;}return c;}
   async read(object) {
     let expected=null, bytes=[];
     do {

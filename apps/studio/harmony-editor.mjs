@@ -1,7 +1,7 @@
-import {setupChordWorkshop} from './chord-workshop.mjs?v=27945b640f';
-import {decodeMelody,harmonize,encodeChordTrack,harmonyProviders,progressionCandidates,buildProgression,deriveNotes,notePatterns,editableRecipes,quantizeProgression} from './harmony.mjs?v=54cddb1a55';
+import {setupChordWorkshop} from './chord-workshop.mjs?v=3257a83bf6';
+import {decodeMelody,harmonize,encodeChordTrack,harmonyProviders,progressionCandidates,buildProgression,deriveNotes,notePatterns,editableRecipes,quantizeProgression} from './harmony.mjs?v=a92972a827';
 import {scaleNames,rootNames} from './scale.mjs?v=bcc8228f15';
-import {noteName} from './module.mjs?v=9e9d1bb338';
+import {noteName} from './module.mjs?v=08f7f2e951';
 export function setupHarmony(dialog,{capture,readTrack,install,bank,audition,getGlobalScale,setBankIdentity}){
   let source=null,result=null,sourceTrack=0,working=false,canCapture=false,canChord=false,canInvert=false,canCustom=false;
   const bankDrafts=new Map();

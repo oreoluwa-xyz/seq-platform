@@ -1,6 +1,6 @@
-import {encodeRecipes,recipeEvents,recipeNotes,customRecipe,quantizeNote} from './chord-project.mjs?v=e15e8ae07f';
+import {encodeRecipes,recipeEvents,recipeNotes,customRecipe,quantizeNote} from './chord-project.mjs?v=6c6f346c5c';
 import {scaleNames,scaleNotes} from './scale.mjs?v=bcc8228f15';
-import {defaultModule,encodeModule,composeModule,chordNotes,noteName} from './module.mjs?v=9e9d1bb338';
+import {defaultModule,encodeModule,composeModule,chordNotes,noteName} from './module.mjs?v=08f7f2e951';
 export function decodeMelody(bytes){
   const length=bytes[2]|bytes[3]<<8;
   if(bytes[0]!==1||bytes[1]>=12||!length||length>2048||bytes.length!==8+length*2||bytes[4]>1||bytes[5]>11||bytes[6]>=scaleNames.length||bytes[7]>15)throw Error('Invalid melody capture.');

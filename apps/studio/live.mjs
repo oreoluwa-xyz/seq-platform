@@ -1,4 +1,4 @@
-import {decodeChordMode} from './chord-mode.mjs?v=baf320581a';
+import {decodeChordMode} from './chord-mode.mjs?v=886590c057';
 import {scaleNames} from './scale.mjs?v=bcc8228f15';
 const notes = bytes => Array.from({length:128}, (_,n)=>n).filter(n=>bytes[n>>3] & (1<<(n&7)));
 export function decodeLive(bytes) {
@@ -44,7 +44,7 @@ export function decodePalette(bytes){
   if([...saved,...capture].some(e=>e.note>127))throw Error('Invalid palette pitch.');
   if(bytes[957]>pending)throw Error('Invalid retained palette size.');
   if(bytes[954]>1||(bytes[954]===1&&bytes[955]>1))throw Error('Invalid palette controls.');
-  return {...state,palette:flags&1?{clearShortcut:!!(bytes[958]&4),replaceShortcut:!!(bytes[958]&1),starter:!!(bytes[958]&1)&&!!(bytes[958]&2),captureEditable:!!(bytes[956]&1),replace:bytes[956]&1?!!(bytes[956]&2):true,full:!!(bytes[956]&4),retained:bytes[957],editable:bytes[954]===1,mode:bytes[954]===1&&!bytes[955]?'palette':'transpose',overrides:bytes[952]|bytes[953]<<8,held:!!(flags&2),shift:!!(flags&4),capturing:!!(flags&8),latched:!!(flags&16),pin:pin===255?null:pin,saved,capture,slots}:null,paletteSupported:true};
+  return {...state,temp:bytes[958]&16?{active:!!(bytes[958]&32),queued:!!(bytes[958]&64)}:null,palette:flags&1?{removeSupported:!!(bytes[958]&8),root:bytes[959],clearShortcut:!!(bytes[958]&4),replaceShortcut:!!(bytes[958]&1),starter:!!(bytes[958]&1)&&!!(bytes[958]&2),captureEditable:!!(bytes[956]&1),replace:bytes[956]&1?!!(bytes[956]&2):true,full:!!(bytes[956]&4),retained:bytes[957],editable:bytes[954]===1,mode:bytes[954]===1&&!bytes[955]?'palette':'transpose',overrides:bytes[952]|bytes[953]<<8,held:!!(flags&2),shift:!!(flags&4),capturing:!!(flags&8),latched:!!(flags&16),pin:pin===255?null:pin,saved,capture,slots}:null,paletteSupported:true};
 }
 export function decodeCC(bytes){
   if(bytes[160]>1||(bytes[160]===1&&bytes[161]>1))throw Error('Invalid CC automation mode.');

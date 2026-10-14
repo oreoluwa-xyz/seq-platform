@@ -1,4 +1,4 @@
-import {componentHelp} from './component-help.mjs?v=e40dd33c04';
+import {componentHelp} from './component-help.mjs?v=008213ee62';
 export const ENGINES = ['euclid', 'chord-bank'];
 const own = (v, keys, where) => {
   if (!v || typeof v !== 'object' || Array.isArray(v)) throw Error(`${where} must be an object.`);
@@ -198,6 +198,7 @@ function decodeComposition(data){
   return validateComposition({format:'seq-module',version:2,id:'device-module',name:'Device module',components:[r,p]});
 }
 export function assertSupported(module,catalog){
+  if(catalog && module.engine==='chord-bank' && !Array.from({length:(catalog.length-6)/2},(_,i)=>catalog[6+i*2]).includes(4))throw Error('Chord banks are not supported by this firmware. Use recorded chords or polyphonic notes.');
   if(module.version===1)return;
   if(module.version===3){if(!catalog||catalog[1]<3)throw Error('Update firmware to use palette pitches.');return;}
   if(!catalog||catalog.length<6||(catalog.length-6)%2||catalog[0]!==1||catalog[1]<2||catalog[2]<2||catalog[3]<8)throw Error('Update keyboard firmware to install composable modules.');

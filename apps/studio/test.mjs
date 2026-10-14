@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import {decodeLive,decodeVisual,decodeDetailed,decodeRhythm,decodePalette,decodeCC,LiveMonitor} from './live.mjs?v=caeba54191';
+import {decodeLive,decodeVisual,decodeDetailed,decodeRhythm,decodePalette,decodeCC,LiveMonitor} from './live.mjs?v=79937b2913';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
-import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,parseNotes,checksum} from './module.mjs?v=9e9d1bb338';
-import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=3ac1a6b240';
+import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,parseNotes,checksum} from './module.mjs?v=08f7f2e951';
+import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=6bb2561018';
 for(const engine of ['euclid','chord-bank']) {
   const m=defaultModule(engine),bytes=encodeModule(m),decoded=decodeModule(bytes);
   assert(sameBytes(encodeModule(decoded),bytes));
@@ -43,13 +43,14 @@ if(process.argv[2]) {
     assert.equal(visual.stepNotes.length,16);assert.deepEqual(visual.stepNotes[0],[]);assert.equal(visual.track,2);assert.equal(visual.visual.mode,'drum');assert.equal(visual.transferring,false);assert.equal(visual.chord,255);assert.equal(visual.chordMode.enabled,false);assert.equal(visual.chordMode.track,2);
     await device.request(12,0);
     const previous=await device.read(1);
-    for(const kind of ['chord-bank','euclid','chord-bank']) {
+    const wrapper=previous.slice();wrapper[2]=1;wrapper[3]=1;await device.upload(1,wrapper);
+    for(const kind of ['euclid']) {
       const module=defaultModule(kind);if(kind==='chord-bank'){module.config.inversion=-2;module.config.transpose=-7;module.config.slots[11].notes=[];}
       const bytes=encodeModule(module);
       await device.upload(13,bytes,true);await device.upload(13,bytes);
       assert(sameBytes(await device.read(13),bytes),'Browser and firmware module codecs must match byte for byte');
     }
-    for(const engineKind of ['euclid','chord-bank'])for(const rhythm of [{id:'rhythm.stored',version:1,params:{}},rhythmComponent()]){
+    for(const engineKind of ['euclid'])for(const rhythm of [{id:'rhythm.stored',version:1,params:{}},rhythmComponent()]){
       const composition=composeModule(defaultModule(engineKind),rhythm),bytes=encodeModule(composition);
       assertSupported(composition,capabilities.components);
       await device.upload(13,bytes,true);await device.upload(13,bytes);
@@ -76,6 +77,13 @@ if(process.argv[2]) {
     await device.finish();await device.request(18,0,0,Uint8Array.of(1));
     await device.request(18,0,0,Uint8Array.of(2,1));
     await device.request(18,0,0,Uint8Array.of(2,0));
+    const paletteModule=defaultModule('euclid');paletteModule.config.root=5;paletteModule.config.pool=[0,-5,2];paletteModule.config.pin=2;
+    await device.upload(13,encodeModule(paletteModule));await device.finish();
+    const removal=Uint8Array.of(3,1,3,5,0,251,2,0,0,0,0,0);
+    await device.request(18,0,0,removal);
+    const afterRemoval=decodeModule(await device.read(13));
+    assert.deepEqual(afterRemoval.config.pool,[0,2]);assert.equal(afterRemoval.config.pin,1);assert.equal(afterRemoval.config.root,5);
+    await device.finish();await assert.rejects(device.request(18,0,0,removal));
     const current=await device.read(1);assert.equal(current[2],1);assert.equal(current[3],1); // Adds wrapper without destroying drums.
     await device.upload(1,previous);assert(sameBytes(await device.read(1),previous));
     await device.finish();
@@ -154,6 +162,7 @@ if(process.argv[2]) {
     const naked=encodeChordTrack(customProgression,1),nakedSource=decodeChordProject(naked,{allowUnowned:true});
     const adopted=adoptChord(nakedSource,[],adoptionCandidates(nakedSource)[0],64,'Adopted');const adoptedBytes=encodeChordProject(adopted.source,adopted.recipes);await device.upload(6,adoptedBytes);assert(sameBytes(await device.read(6),adoptedBytes));
     const legacyBank=Uint8Array.from([...naked.slice(0,nakedSource.recipeStart),...encodeModule(defaultModule('chord-bank'))]);
+    await device.upload(4,legacyBank);const migratedBank=decodeChordProject(await device.read(4),{allowUnowned:true});assert.deepEqual(migratedBank.events,nakedSource.events);await assert.rejects(device.upload(13,encodeModule(defaultModule('chord-bank')),true));
     const legacySource=decodeChordProject(legacyBank,{allowUnowned:true}),legacyAdopt=adoptChord(legacySource,[],adoptionCandidates(legacySource)[0],64,'Imported');assert(legacySource.replacementModule);
     const converted=encodeChordProject(legacyAdopt.source,legacyAdopt.recipes);await device.upload(4,converted);const convertedRead=await device.read(4);assert(sameBytes(convertedRead,converted),`Adoption codec ${convertedRead.length}/${converted.length}: ${[...convertedRead].map((v,i)=>v!==converted[i]?`${i}:${v}/${converted[i]}`:'').filter(Boolean).join(', ')}`);
     const bankProgression=deriveNotes(buildProgression([{candidate:0,duration:8,inversion:1}],{provider:'harmony.bank',bank:defaultModule('chord-bank')}));const bankRecipes=encodeChordTrack(bankProgression,3,{editable:true});await device.upload(5,bankRecipes);assert(sameBytes(await device.read(5),bankRecipes));
@@ -202,7 +211,7 @@ console.log('Live snapshot, track selection, polling lifecycle, and compatibilit
   paused.detailSupported=false;paused.stopped=false;await paused.tick();paused.stop();assert.equal(pieces,1);
 }
 {
-  const {keyboardMarks}=await import('./keyboard.mjs?v=c580fab0fe');
+  const {keyboardMarks}=await import('./keyboard.mjs?v=b9195af0d3');
   const state={active:true,running:true,track:2,bar:1,step:18,length:32,pattern:4,armed:true,selected:[60],sounding:[72],chord:0};
   let marks=keyboardMarks(state,'drum',true);assert.ok(marks.F3.current);assert.ok(marks['3'].playhead&&marks['3'].hit);assert.ok(!marks.D.playhead);
   marks=keyboardMarks(state,'melodic',true);assert.ok(marks.D.playhead);assert.ok(marks.Q.selected&&marks.Q.sounding);
@@ -234,7 +243,7 @@ console.log('Visual paging, legacy fallback, interrupted snapshots, and keyboard
     broken.rhythmSupported=false;broken.paletteSupported=false;broken.stopped=false;await broken.tick();broken.stop();
     if(failure!=='paused')assert.equal(statuses.at(-1),'stale');
   }
-  const {keyboardMarks}=await import('./keyboard.mjs?v=c580fab0fe');
+  const {keyboardMarks}=await import('./keyboard.mjs?v=b9195af0d3');
   const marks=keyboardMarks(decoded,'melodic');assert.deepEqual(marks.A.notes,[0,60,64,67,127]);assert.deepEqual(marks.S.notes,[60]);
   assert.equal(keyboardMarks({...decoded,child:true},'drum').A.notes,undefined);
 }
@@ -254,8 +263,8 @@ for(const source of ['euclid','chord-bank'])for(const rhythm of [{id:'rhythm.sto
 console.log('Component composition, versions, compatibility and resource validation passed.');
 
 // Help follows contract versions and distinguishes live setup from a local draft.
-const {helpFor,guideComponents,moduleFromLive}=await import('./component-help.mjs?v=e40dd33c04');
-const {COMPONENTS}=await import('./module.mjs?v=9e9d1bb338');
+const {helpFor,guideComponents,moduleFromLive}=await import('./component-help.mjs?v=008213ee62');
+const {COMPONENTS}=await import('./module.mjs?v=08f7f2e951');
 for(const component of COMPONENTS){assert.ok(component.help);assert.equal(helpFor(component),component.help);}
 assert.match(helpFor({id:'rhythm.euclid',version:99}).purpose,/not available/);
 assert.equal(moduleFromLive(null),null);
@@ -267,7 +276,7 @@ assert.equal(guideComponents(moduleFromLive({composed:false,engine:1})).length,1
 assert.equal(guideComponents(defaultModule('euclid')).length,2);
 console.log('Component help registry, version fallback and live setup projection passed.');
 
-const {liveOrbitSteps}=await import('./orbit.mjs?v=966d1d5b6f');
+const {liveOrbitSteps}=await import('./orbit.mjs?v=b14d15f367');
 const orbitState={type:1,child:false,bar:1,length:20,pattern:0xffff,active:true,running:true,step:18,stepNotes:Array.from({length:16},(_,i)=>i===2?[60,64,67]:[])};
 const orbit=liveOrbitSteps(orbitState,true);
 assert.equal(orbit.filter(s=>s.hit).length,4);
@@ -323,7 +332,7 @@ console.log('Live rhythm settings, projected pitches, paging and partial-frame r
   const calls=[],states=[];
   const monitor=new LiveMonitor({request:async(cmd,obj=0,offset=0)=>{assert.equal(cmd,17);assert.equal(obj,offset?7:0);calls.push(offset);return bytes.slice(offset,offset+64);}},{onState:s=>states.push(s),onStatus:()=>{}});
   monitor.stopped=false;await monitor.tick();monitor.stop();assert.equal(calls.length,15);assert.equal(states[0].palette.capture.length,3);
-  const {paletteShortcut}=await import('./palette.mjs?v=b8b75dd74e');assert.match(paletteShortcut('win'),/Command-labelled/);assert.match(paletteShortcut('mac'),/Shift \+ Option/);
+  const {paletteShortcut}=await import('./palette.mjs?v=d934a0c35a');assert.match(paletteShortcut('win'),/Command-labelled/);assert.match(paletteShortcut('mac'),/Shift \+ Option/);
 }
 console.log('Palette live capture, saved entries, slot mapping, layouts and paging passed.');
 
@@ -597,3 +606,26 @@ console.log('Multi-bar live view, inactive chord paging and cross-snapshot bar t
   snap[56]=2;assert.throws(()=>decodeChordMode(snap));snap[56]=0;snap[86]=12;assert.throws(()=>decodeChordMode(snap));
 }
 console.log('Scale-bound chord degrees, accurate quality labels, single-chord escape and v4 snapshots passed.');
+
+{
+  const {paletteRemovePayload}=await import('./palette.mjs');
+  const palette={removeSupported:true,root:5,saved:[{offset:0},{offset:-5},{offset:2}]};
+  assert.deepEqual([...paletteRemovePayload(palette,1)],[3,1,3,5,0,251,2,0,0,0,0,0]);
+  assert.throws(()=>paletteRemovePayload(palette,3));
+  assert.throws(()=>paletteRemovePayload({...palette,removeSupported:false},0));
+  const bytes=new Uint8Array(960);bytes[0]=5;bytes[1]=1;bytes[3]=1;bytes[6]=255;bytes[12]=16;bytes[62]=1;bytes[63]=1;bytes[896]=1;bytes[898]=255;bytes.fill(255,936,952);bytes[958]=13;bytes[959]=5;
+  assert.equal(decodePalette(bytes).palette.removeSupported,true);assert.equal(decodePalette(bytes).palette.root,5);
+  bytes[958]=5;assert.equal(decodePalette(bytes).palette.removeSupported,false);
+}
+console.log('Individual palette removal payload and capability passed.');
+
+const {tempPresentation}=await import('./temp.mjs');
+{
+ const bytes=new Uint8Array(960);bytes[0]=5;bytes[1]=1;bytes[6]=255;bytes[12]=16;bytes[62]=1;bytes[63]=1;bytes[898]=255;bytes.fill(255,936,952);
+ assert.equal(decodePalette(bytes).temp,null);
+ for(const bits of [16,48,112]){bytes[958]=bits;const state=decodePalette(bytes);assert.equal(state.temp.active,!!(bits&32));assert.equal(state.temp.queued,!!(bits&64));assert.equal(tempPresentation(state).mode,bits===112?'queued':bits===48?'active':'idle');}
+ assert.equal(tempPresentation(decodePalette(bytes),false).mode,'unknown');assert(tempPresentation(decodePalette(bytes),false).blocked);
+ assert.equal(tempPresentation(null).mode,'offline');assert.equal(tempPresentation({active:true}).mode,'unsupported');
+ assert.equal(tempPresentation({active:false,temp:{active:false,queued:false}}).mode,'off');
+}
+console.log('TEMP compatibility, live states and transfer blocking passed.');

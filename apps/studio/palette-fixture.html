@@ -1,0 +1,18 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Palette removal fixture</title><link rel="stylesheet" href="style.css"><body style="padding:24px"><h1>Palette removal</h1><p id="result">Checking…</p><div id="live-palette" style="max-width:900px"></div><script type="module">
+import {renderPalette,paletteRemovePayload} from './palette.mjs';
+const root=document.querySelector('#live-palette'),edits=[];
+const state={active:true,type:1,child:false,engine:0,visual:{mode:'euclid',os:'win'},palette:{removeSupported:true,root:0,editable:true,captureEditable:true,clearShortcut:true,replaceShortcut:true,mode:'palette',pin:2,saved:[{note:60,offset:0},{note:64,offset:4},{note:67,offset:7}],slots:[],capture:[]}};
+const render=(ready=true)=>renderPalette(root,state,ready,()=>{},()=>{},index=>edits.push([...paletteRemovePayload(state.palette,index)]));
+const assert=(ok,message)=>{if(!ok)throw Error(message)};
+try{
+ render();assert(root.querySelectorAll('.palette-remove').length===3,'One Remove button per note');
+ root.querySelector('[aria-label="Remove E4 from palette slot 2"]').click();
+ assert(edits.length===1&&edits[0][1]===1&&edits[0][2]===3,'Correct slot and expected palette');
+ render(false);assert([...root.querySelectorAll('.palette-remove')].every(b=>b.disabled),'Unavailable controls disabled');
+ state.palette.capturing=true;state.palette.capture=state.palette.saved;render();assert([...root.querySelectorAll('.palette-remove')].every(b=>b.disabled),'Capture disables removal');
+ state.palette.capturing=false;state.palette.removeSupported=false;render();assert(!root.querySelector('.palette-remove'),'Old firmware has no removal control');
+ state.palette.removeSupported=true;state.palette.saved=[];render();assert(!root.querySelector('.palette-remove'),'No removal on empty slots');
+ state.palette.saved=Array.from({length:8},(_,i)=>({note:60+i,offset:i}));render();
+ document.querySelector('#result').textContent='PASS: slot targeting, stale-state payload, disabled capture/offline controls, older firmware and empty palettes.';document.title='PASS · Palette removal';
+}catch(error){document.querySelector('#result').textContent='FAIL: '+error.message;document.title='FAIL · Palette removal';}
+</script></body></html>
