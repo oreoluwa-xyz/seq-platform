@@ -1,4 +1,4 @@
-const {app, BrowserWindow, Menu, ipcMain, session, screen, shell, dialog} = require('electron');
+const {app, BrowserWindow, Menu, globalShortcut, ipcMain, session, screen, shell, dialog} = require('electron');
 // Chromium's macOS UMP backend drops the keyboard's fragmented SysEx replies.
 // Select CoreMIDI's legacy backend before Electron initializes MIDI services.
 if (process.platform === 'darwin') {
@@ -16,7 +16,13 @@ const smoke = process.argv.includes('--smoke-test');
 app.setName('SEQ');
 if (smoke) app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'seq-desktop-smoke-')));
 let window, service, state, statePath, quitting = false, saveTimer, menu;
-const publicState = () => ({pinned: state.pinned, compact: state.compact});
+let shortcutAvailable = false;
+const publicState = () => ({pinned: state.pinned, compact: state.compact, shortcutAvailable});
+function toggleVisibility() {
+    if (!window || window.isDestroyed()) return;
+    if (window.isVisible() && !window.isMinimized()) window.hide();
+    else { if (window.isMinimized()) window.restore(); window.show(); window.focus(); }
+}
 function save() {
     clearTimeout(saveTimer);
     if (window && !window.isDestroyed() && !window.isMaximized() && !window.isFullScreen()) state[state.compact ? 'performance' : 'workshop'] = window.getBounds();
@@ -39,7 +45,7 @@ function setCompact(value) {
         save(); state.compact = value;
         if (window.isMaximized()) window.unmaximize();
         const area = screen.getDisplayMatching(window.getBounds()).workArea;
-        window.setMinimumSize(Math.min(value ? 520 : 840, area.width), Math.min(400, area.height));
+        window.setMinimumSize(Math.min(value ? 520 : 840, area.width), Math.min(value ? 250 : 400, area.height));
         window.setBounds(fitBounds(state[value ? 'performance' : 'workshop'], screen.getAllDisplays(), value));
     }
     publish(); return publicState();
@@ -59,6 +65,7 @@ function installMenu() {
         ...(process.platform === 'darwin' ? [{label: 'SEQ', submenu: [{role: 'about'}, {type: 'separator'}, {role: 'hide'}, {role: 'hideOthers'}, {role: 'unhide'}, {type: 'separator'}, {role: 'quit'}]}] : []),
         {label: 'Edit', submenu: [{role: 'undo'}, {role: 'redo'}, {type: 'separator'}, {role: 'cut'}, {role: 'copy'}, {role: 'paste'}, {role: 'selectAll'}]},
         {label: 'View', submenu: [
+            {label: 'Hide / show SEQ (Ctrl+Backslash)', click: toggleVisibility},
             {id: 'pin', label: 'Pin above other apps', type: 'checkbox', checked: state.pinned, accelerator: 'CommandOrControl+Shift+P', click: item => setPinned(item.checked)},
             {id: 'compact', label: 'Performance view', type: 'checkbox', checked: state.compact, accelerator: 'CommandOrControl+Shift+M', click: item => setCompact(item.checked)},
             {type: 'separator'}, {role: 'resetZoom'}, {role: 'zoomIn'}, {role: 'zoomOut'}, {type: 'separator'}, {role: 'toggleDevTools'}
@@ -70,7 +77,7 @@ function installMenu() {
 async function createWindow() {
     const bounds = fitBounds(state[state.compact ? 'performance' : 'workshop'], screen.getAllDisplays(), state.compact);
     window = new BrowserWindow({
-        ...bounds, minWidth: Math.min(bounds.width, state.compact ? 520 : 840), minHeight: Math.min(bounds.height, 400),
+        ...bounds, minWidth: Math.min(bounds.width, state.compact ? 520 : 840), minHeight: Math.min(bounds.height, state.compact ? 250 : 400),
         title: 'SEQ', show: false, backgroundColor: '#f4f3ed', autoHideMenuBar: true,
         webPreferences: {preload: path.join(__dirname, 'preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false, webSecurity: true, backgroundThrottling: false}
     });
@@ -104,10 +111,13 @@ async function smokeTest() {
     await window.webContents.executeJavaScript('window.seqDesktop.setPinned(true)'); check(window.isAlwaysOnTop(), 'Pin');
     await window.webContents.executeJavaScript('window.seqDesktop.setCompact(true)');
     await new Promise(resolve => setTimeout(resolve, 200));
-    check(await window.webContents.executeJavaScript("document.body.classList.contains('desktop-performance') && getComputedStyle(document.querySelector('.sidebar')).display === 'none'"), 'Compact layout');
-    window.hide();
+    check(await window.webContents.executeJavaScript("document.body.classList.contains('desktop-performance') && getComputedStyle(document.querySelector('.sidebar')).display !== 'none'"), 'Compact layout');
+    check(shortcutAvailable && globalShortcut.isRegistered('Control+\\'), 'Global hide shortcut registered');
+    toggleVisibility();
+    check(!window.isVisible(), 'Shortcut hides the window');
     check(await window.webContents.executeJavaScript('!document.hidden'), 'Live view remains active in the background');
-    window.show();
+    toggleVisibility();
+    check(window.isVisible(), 'Shortcut restores the window');
     await window.webContents.executeJavaScript('window.seqDesktop.setCompact(false)');
     await new Promise(resolve => setTimeout(resolve, 100));
     check(!state.compact && fs.existsSync(statePath), 'Restore workshop and persist state');
@@ -117,12 +127,28 @@ async function smokeTest() {
     await window.webContents.executeJavaScript('window.seqDesktop.setCompact(true)');
     await window.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'smoke-preview.js'), 'utf8'));
     check(await window.webContents.executeJavaScript("document.querySelector('#live-temp').dataset.temp === 'queued' && document.querySelector('#live-temp').textContent.includes('Shift + Esc')"), 'TEMP queue status and controls in compact view');
+    check(await window.webContents.executeJavaScript("document.querySelectorAll('#tracks .track').length === 12 && getComputedStyle(document.querySelector('.sidebar')).display !== 'none' && !!document.querySelector('#hardware-orbit svg')"), 'Track rail and circular rhythm remain visible');
     window.setSize(520, 720);
     await new Promise(resolve => setTimeout(resolve, 150));
     check(await window.webContents.executeJavaScript('document.documentElement.scrollWidth <= innerWidth'), 'No horizontal overflow at the minimum width');
-    window.setSize(780, 720);
+    window.setSize(1080, 270);
     await new Promise(resolve => setTimeout(resolve, 150));
+    check(await window.webContents.executeJavaScript("document.querySelector('#hardware-orbit').getBoundingClientRect().bottom <= innerHeight"), 'Circular rhythm fits the default strip height');
+    check(await window.webContents.executeJavaScript(`(()=>{
+        const steps=document.querySelector('#live-steps').getBoundingClientRect();
+        const panel=document.querySelector('.hardware-rhythm>div:nth-child(2)').getBoundingClientRect();
+        const orbit=document.querySelector('#hardware-orbit').getBoundingClientRect();
+        return steps.width >= panel.width-2 && Math.abs(panel.bottom-orbit.bottom)<3 && panel.bottom <= innerHeight;
+    })()`), 'Step grid fills its panel and aligns with radial');
     fs.writeFileSync(path.join(app.getPath('userData'), 'performance.png'), (await window.webContents.capturePage()).toPNG());
+    await window.webContents.executeJavaScript(`(async()=>{
+        const {renderCC}=await import('/ui/cc.mjs');
+        document.body.dataset.liveMode='cc';
+        renderCC(document.querySelector('#cc-dock'),{cc:{active:true,latched:false,manual:true,track:0,selected:0,slots:Array.from({length:8},(_,i)=>({keycode:20+i,controller:70+i,channel:0,value:16*i,held:i===0}))}},true);
+    })()`);
+    await new Promise(resolve => setTimeout(resolve, 150));
+    check(await window.webContents.executeJavaScript("!document.querySelector('#cc-dock').hidden && getComputedStyle(document.querySelector('#cc-dock')).position === 'static' && getComputedStyle(document.querySelector('.hardware-rhythm')).display === 'none' && document.querySelector('#cc-dock').getBoundingClientRect().top >= document.querySelector('#tracks').getBoundingClientRect().bottom"), 'Held CC mode replaces rhythm without covering tracks');
+    fs.writeFileSync(path.join(app.getPath('userData'), 'performance-cc.png'), (await window.webContents.capturePage()).toPNG());
     console.log(JSON.stringify({result: 'PASS', ownedService: service.owned, midi, statePath, screenshot: path.join(app.getPath('userData'), 'performance.png')}));
     app.quit();
 }
@@ -132,7 +158,7 @@ else {
     app.on('activate', () => { if (window) window.show(); });
     app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
     app.on('before-quit', () => { quitting = true; if (statePath) save(); });
-    app.on('will-quit', () => { clearTimeout(saveTimer); service?.stop(); });
+    app.on('will-quit', () => { clearTimeout(saveTimer); globalShortcut.unregisterAll(); service?.stop(); });
     app.whenReady().then(async () => {
         fs.mkdirSync(app.getPath('userData'), {recursive: true});
         statePath = path.join(app.getPath('userData'), 'window-state.json');
@@ -152,6 +178,9 @@ else {
         for (const [channel, action] of [['seq:window-state', () => publicState()], ['seq:pin', setPinned], ['seq:compact', setCompact]]) {
             ipcMain.handle(channel, (event, value) => { trusted(event); if (channel !== 'seq:window-state' && typeof value !== 'boolean') throw Error('Expected a boolean.'); return action(value); });
         }
+        ipcMain.handle('seq:hide', event => { trusted(event); window.hide(); });
+        shortcutAvailable = globalShortcut.register('Control+\\', toggleVisibility);
+        if (!shortcutAvailable) console.error('Ctrl+Backslash is unavailable: another app may own it.');
         await createWindow();
         if (smoke) await smokeTest();
     }).catch(error => {

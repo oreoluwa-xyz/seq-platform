@@ -4,7 +4,7 @@ import {decodeProjectScale,sameScale} from './chord-project.mjs?v=6c6f346c5c';
 import {renderChordMode} from './chord-mode.mjs?v=886590c057';
 import {harmonyRequestChanged} from './harmony.mjs?v=a92972a827';
 import {setupHarmony} from './harmony-editor.mjs?v=f9d12cc709';
-import {renderCC} from './cc.mjs?v=9e1b563d8a';
+import {renderCC} from './cc.mjs?v=d5be1c11b7';
 import {renderScale,renderScaleModal} from './scale.mjs?v=bcc8228f15';
 import {renderRhythmControls,rhythmEditPayload} from './rhythm-controls.mjs';
 import {renderPalette,paletteRemovePayload} from './palette.mjs?v=d934a0c35a';
@@ -255,7 +255,7 @@ $('attach').onclick=async()=>{
 function stopLive(){lastHarmonyRequest=null;liveMonitor?.stop();liveMonitor=null;liveState=null;liveReady=false;queuedHardwareState=null;renderLive();$('live-status').textContent='Connect to follow your keyboard';}
 function startLive(device){
   stopLive();$('live-status').textContent='Reading hardware state…';
-  liveMonitor=new LiveMonitor(device,{canPoll:()=>!busy&&!document.hidden,wantVisual:()=>manual?.wantsVisual(),onState:state=>{
+  liveMonitor=new LiveMonitor(device,{canPoll:()=>!busy&&!document.hidden,wantVisual:()=>!!window.seqDesktop||manual?.wantsVisual(),onState:state=>{
     liveState=state;liveReady=true;
     const openRequested=harmonyRequestChanged(lastHarmonyRequest,state.harmonyRequest);lastHarmonyRequest=state.harmonyRequest;
     if(openRequested)openHarmony();
@@ -284,6 +284,13 @@ function updateTransferControls(){
 }
 function renderLive(){
   renderTemp($('live-temp'),liveState,liveReady);
+  document.body.dataset.liveMode=liveReady?(liveState?.visual?.mode||'off'):'unavailable';
+  document.querySelectorAll('#tracks .track').forEach((node,i)=>{
+    const rgb=liveReady&&liveState?.visual?.leds?.slice((i+1)*3,(i+2)*3);
+    node.style.setProperty('--hardware-led',rgb?.length===3?`rgb(${[...rgb].join(',')})`:'transparent');
+    node.classList.toggle('hardware-current',!!liveReady&&liveState?.track===i);
+    node.title=liveReady?'Track '+(i+1)+' · indicator mirrors the keyboard LED':'Track '+(i+1)+' · hardware unavailable';
+  });
   updateTransferControls();
   $('harmony-open').title='Harmony workshop · Ctrl + Shift + Space';
   $('harmony-open').disabled=busy;

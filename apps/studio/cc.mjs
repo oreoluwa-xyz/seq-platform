@@ -10,7 +10,7 @@ export function ccStatus(cc,ready){
   return `${mode}${cc.temporary?' · temporary tweak':''}`;
 }
 export function renderCC(root,state,ready){
-  const cc=state?.cc,visible=!!(cc?.active&&cc.latched);
+  const cc=state?.cc,visible=!!(cc?.active&&(cc.latched||document.body.classList.contains('desktop-performance')));
   root.hidden=!visible;
   document.body.classList.toggle('cc-dock-open',visible);
   if(!visible)return;
@@ -29,6 +29,7 @@ export function renderCC(root,state,ready){
     observer.observe(root);const workspace=document.querySelector('.app-shell');if(workspace)observer.observe(workspace);
     window.addEventListener('resize',align);align();
   }
+  root.querySelector('.eyebrow').textContent=cc.latched?'MIDI CC · LATCHED':'MIDI CC · HELD';
   root.classList.toggle('cc-stale',!ready);
   root.querySelector('.cc-target').textContent=`Track ${String(cc.track+1).padStart(2,'0')}${cc.trackOverride?' · held target':''}`;
   root.querySelector('.cc-status').textContent=ccStatus(cc,ready);

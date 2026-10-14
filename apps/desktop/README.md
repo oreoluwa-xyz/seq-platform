@@ -49,3 +49,13 @@ SEQ_DESKTOP_PORT=18765 npm run test:smoke
 The smoke run uses an isolated temporary profile, opens Electron, tests pin/unpin, switches views, checks IPC isolation and persisted state, and enumerates MIDI ports with SysEx access. It sends no musical MIDI and does not flash hardware. It saves a screenshot and reports the temporary profile path before exiting.
 
 The macOS packaging workflow bundles Python, native DFU tooling, the manual, and a firmware release. `npm run dist:local` creates an explicitly unnotarized preview; `npm run dist:mac` requires Developer ID and notarization credentials and verifies both app and DMG. See [release instructions](RELEASE.md). Auto-updates and testing with the DAW in full screen remain separate work.
+
+### Performance strip
+
+New windows default to a pinned, 1080 × 270 performance strip centered near the bottom of the display's usable area. Saved window positions and dimensions are retained. Workshop mode remains available from the toolbar.
+
+All 12 tracks stay visible. The selected hardware track is outlined; dots mirror the keyboard's actual F1–F12 LEDs, including its activity and mute feedback, rather than inferring activity from the selected track. Missing or stale telemetry clears the dots.
+
+The strip preserves Studio's circular rhythm display and CC knobs. Euclid controls follow Euclid mode; held or latched CC mode replaces the rhythm area. TEMP is a small status indicator with a `?` disclosure for its shortcuts. The Manual button opens the existing keyboard guide, which follows the hardware mode.
+
+Ctrl + Backslash (\) globally hides or shows SEQ, including while Ableton has focus. Updated keyboard firmware passes this chord through sequencer, Euclid and CC editing without changing notes. Hiding keeps the MIDI connection running. The toolbar Hide button shows shortcut availability; if another app owns it, reopen SEQ from the Dock.

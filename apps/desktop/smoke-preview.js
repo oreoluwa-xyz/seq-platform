@@ -7,6 +7,9 @@
         projectedNotes: Array.from({length:16}, (_, i) => 0x4925 & (1 << i) ? [[60,63,65,67][i % 4]] : []),
         euclid: {editable:true, orderedKeys:true, lane:null, euclidean:true, enabled:true, steps:16, fills:6, rotation:0, probability:100, accent:12, generated:0x4925}};
     state.temp={active:true,queued:true};
+    state.visual={mode:"euclid"};
+    document.body.dataset.liveMode="euclid";
+    document.querySelectorAll("#tracks .track").forEach((node,i)=>{node.classList.toggle("hardware-current",i===0);node.style.setProperty("--hardware-led",i<4?"rgb(230,140,30)":"rgb(12,12,12)");});
     renderTemp(document.querySelector('#live-temp'),state,true);
     document.querySelector('#live-content').hidden = false;
     document.querySelector('#live-palette').hidden = true;

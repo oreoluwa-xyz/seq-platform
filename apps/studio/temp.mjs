@@ -9,7 +9,8 @@ export function tempPresentation(state, ready=true) {
 }
 export function renderTemp(container,state,ready=true) {
   if (!container.dataset.initialized) {
-    container.innerHTML='<div class="temp-heading"><i class="temp-light" aria-hidden="true"></i><strong data-temp-title role="status"></strong><span class="temp-caption">PERFORMANCE / TEMP</span></div><p data-temp-detail></p><div class="temp-shortcuts"><span><kbd>Enter + Esc</kbd> Start / keep edits</span><span><kbd>Esc</kbd> Restore now</span><span><kbd>Shift + Esc</kbd> Queue / cancel drop</span></div><small>Drop timing follows the global 16-step bar. Keeping edits does not immediately save to flash.</small>';
+    container.innerHTML='<div class="temp-heading"><i class="temp-light" aria-hidden="true"></i><strong data-temp-title role="status"></strong><span class="temp-caption">PERFORMANCE / TEMP</span><button type="button" class="temp-help" aria-label="TEMP shortcuts" aria-expanded="false">?</button></div><p data-temp-detail></p><div class="temp-shortcuts"><span><kbd>Enter + Esc</kbd> Start / keep edits</span><span><kbd>Esc</kbd> Restore now</span><span><kbd>Shift + Esc</kbd> Queue / cancel drop</span></div><small>Drop timing follows the global 16-step bar. Keeping edits does not immediately save to flash.</small>';
+    container.querySelector('.temp-help').onclick=()=>{const open=container.classList.toggle('temp-expanded');container.querySelector('.temp-help').setAttribute('aria-expanded',String(open));};
     container.dataset.initialized='true';
   }
   const view=tempPresentation(state,ready);

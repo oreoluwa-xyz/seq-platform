@@ -2117,6 +2117,30 @@ static void test_temp_capacity(void) {
     assert(!seq_temp_active && !seq_state.active && !seq_drum_step_get(0,0,1));
 }
 
+static void test_desktop_shortcut(void) {
+    reset(); seq_enter(test_now);
+    assert(key(KC_LCTL, true));
+    assert(key(KC_BSLS, true));
+    assert(key(KC_LCTL, false));
+    assert(key(KC_BSLS, false));
+    assert(seq_state.active && !seq_state.running);
+    seq_euclid_mode_enter(test_now);
+    assert(key(KC_RCTL, true));
+    assert(key(KC_BSLS, true));
+    assert(key(KC_BSLS, false));
+    assert(key(KC_RCTL, false));
+    assert(euclid_mode_active);
+    cc_mode.latched = true;
+    assert(key(KC_LCTL, true));
+    assert(key(KC_BSLS, true));
+    assert(key(KC_BSLS, false));
+    assert(key(KC_LCTL, false));
+    assert(cc_mode.latched);
+    cc_mode.latched = false;
+    assert(!key(KC_BSLS, true));
+    assert(!key(KC_BSLS, false));
+}
+
 int main(int argc, char **argv) {
     if (argc > 1 && !strcmp(argv[1], "--bridge")) {
         run_protocol_bridge();
@@ -2162,6 +2186,7 @@ int main(int argc, char **argv) {
     test_components();
     test_live_rhythm();
     test_live_palette();
+    test_desktop_shortcut();
     test_palette_pitch_mode();
     test_scale_quantizer();
     test_scale_editor_storage();
@@ -2180,5 +2205,5 @@ int main(int argc, char **argv) {
     test_euclid_picked_notes();
     test_transport_restart();
     test_bounded_save();
-    puts("seq_engine: 57 regression groups passed");
+    puts("seq_engine: 58 regression groups passed");
 }

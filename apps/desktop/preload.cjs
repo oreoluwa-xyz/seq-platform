@@ -1,5 +1,6 @@
 const {contextBridge, ipcRenderer} = require('electron');
 contextBridge.exposeInMainWorld('seqDesktop', {
+    hide: () => ipcRenderer.invoke('seq:hide'),
     getState: () => ipcRenderer.invoke('seq:window-state'),
     setPinned: value => ipcRenderer.invoke('seq:pin', value),
     setCompact: value => ipcRenderer.invoke('seq:compact', value),

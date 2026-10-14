@@ -6252,6 +6252,13 @@ static void seq_handle_melodic_step(uint8_t slot_index, uint16_t absolute_step, 
 bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
     uint32_t now    = timer_read32();
     bool     pressed = record->event.pressed;
+    /* Reserve Ctrl+Backslash for the desktop visibility shortcut in every editor.
+     * Track its release even if Ctrl is released first or sequencer mode changes. */
+    static bool desktop_shortcut_held = false;
+    if (keycode == KC_BSLS && (desktop_shortcut_held || (seq_state.active && ((seq_ctrl_mask | get_mods()) & (MOD_BIT(KC_LCTL) | MOD_BIT(KC_RCTL)))))) {
+        desktop_shortcut_held = pressed;
+        return true;
+    }
     if (keycode == KC_ENT) seq_temp_enter_held = pressed;
     if (keycode == KC_ESC && seq_temp_escape_held) {
         if (!pressed) seq_temp_escape_held = false;

@@ -4,7 +4,7 @@
 #ifndef SEQ_BUILD_ID
 #    define SEQ_BUILD_ID "00000000000000000000000000000000"
 #endif
-#define SEQ_FIRMWARE_VERSION "2026.10.14.1"
+#define SEQ_FIRMWARE_VERSION "2026.10.14.2"
 #define SEQ_FIRMWARE_TARGET "keychron/v1_max/ansi_encoder:seq_test"
 
 typedef struct {
