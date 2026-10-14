@@ -1,4 +1,11 @@
 const {app, BrowserWindow, Menu, ipcMain, session, screen, shell, dialog} = require('electron');
+// Chromium's macOS UMP backend drops the keyboard's fragmented SysEx replies.
+// Select CoreMIDI's legacy backend before Electron initializes MIDI services.
+if (process.platform === 'darwin') {
+    const disabled = new Set(app.commandLine.getSwitchValue('disable-features').split(',').filter(Boolean));
+    disabled.add('MidiMacUmp');
+    app.commandLine.appendSwitch('disable-features', [...disabled].join(','));
+}
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -104,6 +111,7 @@ async function smokeTest() {
     await window.webContents.executeJavaScript('window.seqDesktop.setCompact(false)');
     await new Promise(resolve => setTimeout(resolve, 100));
     check(!state.compact && fs.existsSync(statePath), 'Restore workshop and persist state');
+    if (process.platform === 'darwin') check(app.commandLine.getSwitchValue('disable-features').split(',').includes('MidiMacUmp'), 'macOS CoreMIDI backend selected');
     const midi = await window.webContents.executeJavaScript("navigator.requestMIDIAccess({sysex:true}).then(a=>({sysex:a.sysexEnabled,inputs:[...a.inputs.values()].map(p=>p.name),outputs:[...a.outputs.values()].map(p=>p.name)}))", true);
     check(midi.sysex, 'MIDI SysEx permission');
     await window.webContents.executeJavaScript('window.seqDesktop.setCompact(true)');
