@@ -104,3 +104,31 @@ body.cc-dock-open{padding-bottom:var(--cc-dock-space,300px)}
 .temp-panel[data-temp=queued] .temp-light{animation:temp-blink .48s steps(1,end) infinite}@keyframes temp-blink{50%{opacity:0}}
 .temp-panel p{font-size:12px;line-height:1.5;margin:9px 0}.temp-shortcuts{display:flex;gap:8px 18px;flex-wrap:wrap;font-size:11px}.temp-shortcuts span{display:flex;align-items:center;gap:6px}.temp-shortcuts kbd{white-space:nowrap}.temp-panel small{display:block;margin-top:10px;font-size:10px;color:var(--muted);line-height:1.5}
 @media(prefers-reduced-motion:reduce){.temp-panel[data-temp=queued] .temp-light{animation:none}}
+
+/* Shared desktop and browser mute indicators. */
+#tracks .track .track-mute{display:none;font:9px var(--mono);font-weight:bold;color:#b83b35}
+#tracks .track[data-mute=muted] .track-mute,#tracks .track[data-mute=partial] .track-mute{display:inline}
+#tracks .track[data-mute=muted] .track-light{background:#b83b35!important}
+#tracks .track[data-mute=partial] .track-light{animation:track-lane-mute 1.4s ease-in-out infinite}
+@keyframes track-lane-mute{0%,100%{background:#b83b35;box-shadow:0 0 0 2px #b83b3530}50%{background:var(--hardware-led,#b83b35);box-shadow:none}}
+@media(prefers-reduced-motion:reduce){#tracks .track[data-mute=partial] .track-light{animation:none;background:#b83b35!important}}
+
+#tracks .track[data-mute=muted] .track-light,#tracks .track[data-mute=partial] .track-light{width:7px;height:7px;flex:0 0 7px}
+.track-mute-short{display:none}
+#tracks .track .track-mute-full{font:8px var(--mono);white-space:nowrap}
+/* Compact CC tiles are shared with the browser workshop. */
+.cc-slot{display:grid;grid-template-columns:minmax(0,1fr) 32px;grid-template-rows:16px 16px auto;gap:0 3px;padding:4px 5px;text-align:left}
+.cc-slot-label{display:contents}
+.cc-slot kbd{grid-column:1;grid-row:1;justify-self:start;font-size:9px;padding:0 3px;line-height:13px}
+.cc-slot-label span{grid-column:1;grid-row:2;align-self:center;font-size:8px;white-space:nowrap}
+.cc-knob{grid-column:2;grid-row:1 / span 2;width:32px;height:32px;margin:0}
+.cc-knob-face{inset:6px}
+.cc-knob-face strong{font-size:9px}
+.cc-knob-face i:before{height:3px;top:1px}
+.cc-slot small{grid-column:1/-1;min-height:0;font-size:7px;line-height:10px;white-space:nowrap}
+
+body:not(.desktop-performance) #tracks .track{display:grid;grid-template-columns:24px minmax(0,1fr) 7px;gap:3px 8px}
+body:not(.desktop-performance) #tracks .track-index{grid-column:1;grid-row:1 / span 2}
+body:not(.desktop-performance) #tracks .track>span:nth-child(2){grid-column:2;grid-row:1;min-width:0}
+body:not(.desktop-performance) #tracks .track-light{grid-column:3;grid-row:1}
+body:not(.desktop-performance) #tracks .track-mute{grid-column:2/-1;grid-row:2}

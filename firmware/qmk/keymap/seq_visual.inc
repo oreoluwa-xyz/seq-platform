@@ -100,7 +100,7 @@ static void seq_palette_snapshot(void) {
     uint8_t *out = seq_visual_image + SEQ_RHYTHM_SIZE;
     memset(out + 40, 255, 16);
     out[2] = 255;
-    out[62] = 16 | (seq_temp_active ? 32 : 0) | (seq_temp_restore_pending ? 64 : 0); /* Global TEMP capability, active, queued. */
+    out[62] = 128 | 16 | (seq_temp_active ? 32 : 0) | (seq_temp_restore_pending ? 64 : 0); /* Mute summary support; global TEMP capability, active, queued. */
     if (!slot_uses_melodic(slot) || seq_modules[slot].kind != SEQ_MODULE_EUCLID) return;
     uint8_t track = slot_melodic_track(slot);
     const seq_euclid_track_t *e = &euclid_tracks[slot];
@@ -151,6 +151,23 @@ static void seq_cc_snapshot(void) {
     seq_visual_image[2] = track;
     seq_visual_image[3] = cc_session.active && cc_session.track == track && cc_session.mapping_index < count ? cc_session.mapping_index : 255;
     seq_visual_image[4] = count;
+    /* Versioned mute summary in the unused CC header, readable in any mode. */
+    seq_visual_image[5] = 1;
+    uint16_t muted = 0, partial = 0;
+    for (uint8_t slot = 0; slot < 12; slot++) {
+        bool has_melody = slot_is_melodic(slot), has_drums = slot_has_drum_layer(slot);
+        bool melody_muted = has_melody && melodic_track_muted[slot_melodic_track(slot)];
+        uint8_t muted_lanes = 0;
+        if (has_drums) {
+            for (uint8_t lane = 0; lane < SEQ_DRUM_NOTE_COUNT; lane++)
+                if (drum_lane_muted[slot_drum_track(slot)][lane]) muted_lanes++;
+        }
+        bool all_muted = (has_melody || has_drums) && (!has_melody || melody_muted) && (!has_drums || muted_lanes == SEQ_DRUM_NOTE_COUNT);
+        if (all_muted) muted |= 1u << slot;
+        else if (melody_muted || muted_lanes) partial |= 1u << slot;
+    }
+    seq_live_u16(seq_visual_image + 6, muted);
+    seq_live_u16(seq_visual_image + 8, partial);
     seq_visual_image[160] = 1; /* Per-track automation mode support. */
     seq_visual_image[161] = cc_automation_manual[track] ? 1 : 0;
     seq_visual_image[162] = 1; /* Shift + PgDn shortcut. */

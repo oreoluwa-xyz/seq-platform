@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {decodeLive,decodeVisual,decodeDetailed,decodeRhythm,decodePalette,decodeCC,LiveMonitor} from './live.mjs?v=79937b2913';
+import {decodeLive,decodeVisual,decodeDetailed,decodeRhythm,decodePalette,decodeCC,LiveMonitor} from './live.mjs?v=5709598627';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,parseNotes,checksum} from './module.mjs?v=08f7f2e951';
@@ -629,3 +629,27 @@ const {tempPresentation}=await import('./temp.mjs');
  assert.equal(tempPresentation({active:false,temp:{active:false,queued:false}}).mode,'off');
 }
 console.log('TEMP compatibility, live states and transfer blocking passed.');
+
+{
+ const {decodeMuteSummary}=await import('./live.mjs');
+ const {trackMuteStatus}=await import('./track-status.mjs');
+ const header=new Uint8Array(64);
+ assert.equal(decodeMuteSummary(header),null);
+ header[5]=1;header[6]=2;header[8]=4;
+ const mutes=decodeMuteSummary(header);assert.deepEqual(mutes,{muted:2,partial:4});
+ assert.equal(trackMuteStatus({mutes},true,0).mode,'clear');
+ assert.equal(trackMuteStatus({mutes},true,1).mode,'muted');
+ assert.equal(trackMuteStatus({mutes},true,2).mode,'partial');
+ assert.equal(trackMuteStatus({mutes},false,1).mode,'unknown');
+ assert.equal(trackMuteStatus({},true,1).mode,'unknown');
+ header[8]=2;assert.throws(()=>decodeMuteSummary(header));header[8]=0;header[7]=16;assert.throws(()=>decodeMuteSummary(header));
+ const palette=new Uint8Array(960);palette[0]=5;palette[6]=255;palette[12]=16;palette[60]=1;palette[62]=9;palette[63]=1;palette[898]=255;palette.fill(255,936,952);palette[637]=1;palette[958]=128;
+ header.fill(0);header[0]=1;header[5]=1;header[6]=2;header[8]=4;header[62]=3;header[63]=1;
+ const calls=[],states=[];
+ const device={request:async(cmd,obj=0,offset=0)=>{calls.push([cmd,offset]);if(cmd===21){assert.equal(offset,0);return header;}return palette.slice(offset,offset+64);}};
+ const monitor=new LiveMonitor(device,{onState:s=>states.push(s),onStatus:()=>{}});monitor.stopped=false;
+ await monitor.tick();clearTimeout(monitor.timer);
+ assert.deepEqual(states.at(-1).mutes,{muted:2,partial:4});assert.equal(states.at(-1).cc,undefined);assert.equal(calls.filter(c=>c[0]===21).length,1);
+ calls.length=0;palette[958]=0;await monitor.tick();monitor.stop();assert.equal(calls.filter(c=>c[0]===21).length,0);assert.equal(states.at(-1).mutes,undefined);
+}
+console.log('Mute telemetry, legacy fallback, stale indicators and header-only polling passed.');

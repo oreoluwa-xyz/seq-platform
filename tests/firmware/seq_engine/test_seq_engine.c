@@ -2141,6 +2141,28 @@ static void test_desktop_shortcut(void) {
     assert(!key(KC_BSLS, false));
 }
 
+static void test_mute_summary(void) {
+    reset(); seq_enter(test_now);
+    seq_slots[1].kind = SEQ_SLOT_KIND_MELODIC;
+    melodic_track_muted[slot_melodic_track(1)] = true;
+    drum_lane_muted[slot_drum_track(0)][3] = true;
+    seq_visual_capture(17);
+    assert(seq_visual_image[958] & 128);
+    seq_visual_capture(21);
+    assert(seq_visual_image[5] == 1);
+    assert((seq_visual_image[6] & 2) && !(seq_visual_image[6] & 1));
+    assert(seq_visual_image[8] & 1);
+    for (uint8_t lane = 0; lane < SEQ_DRUM_NOTE_COUNT; lane++) drum_lane_muted[slot_drum_track(0)][lane] = true;
+    seq_visual_capture(21);
+    assert((seq_visual_image[6] & 1) && !(seq_visual_image[8] & 1));
+    seq_slots[1].wraps_drum = true;
+    seq_visual_capture(21);
+    assert(!(seq_visual_image[6] & 2) && (seq_visual_image[8] & 2));
+    seq_mute_clear_all(test_now);
+    seq_visual_capture(21);
+    assert(!(seq_visual_image[6] | seq_visual_image[7] | seq_visual_image[8] | seq_visual_image[9]));
+}
+
 int main(int argc, char **argv) {
     if (argc > 1 && !strcmp(argv[1], "--bridge")) {
         run_protocol_bridge();
@@ -2186,6 +2208,7 @@ int main(int argc, char **argv) {
     test_components();
     test_live_rhythm();
     test_live_palette();
+    test_mute_summary();
     test_desktop_shortcut();
     test_palette_pitch_mode();
     test_scale_quantizer();
@@ -2205,5 +2228,5 @@ int main(int argc, char **argv) {
     test_euclid_picked_notes();
     test_transport_restart();
     test_bounded_save();
-    puts("seq_engine: 58 regression groups passed");
+    puts("seq_engine: 59 regression groups passed");
 }

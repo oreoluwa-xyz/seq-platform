@@ -59,3 +59,5 @@ All 12 tracks stay visible. The selected hardware track is outlined; dots mirror
 The strip preserves Studio's circular rhythm display and CC knobs. Euclid controls follow Euclid mode; held or latched CC mode replaces the rhythm area. TEMP is a small status indicator with a `?` disclosure for its shortcuts. The Manual button opens the existing keyboard guide, which follows the hardware mode.
 
 Ctrl + Backslash (\) globally hides or shows SEQ, including while Ableton has focus. Updated keyboard firmware passes this chord through sequencer, Euclid and CC editing without changing notes. Hiding keeps the MIDI connection running. The toolbar Hide button shows shortcut availability; if another app owns it, reopen SEQ from the Dock.
+
+CC mode uses two compact rows for all 16 mappings, retaining key labels, controller numbers, values and channels. Track mute telemetry shows a steady red M for fully muted tracks and a pulsing red ± for partial lane/layer mutes. Hover a track for its status. Reduced-motion preferences disable pulsing. Older firmware reports mute status as unavailable; it is never inferred from LED colors.

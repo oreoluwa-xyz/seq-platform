@@ -1,10 +1,11 @@
+import {renderTrackMute} from './track-status.mjs';
 import {renderTemp} from './temp.mjs';
 import {setupFirmware,verifyFirmware} from './firmware.mjs?v=cdb10208e0';
 import {decodeProjectScale,sameScale} from './chord-project.mjs?v=6c6f346c5c';
 import {renderChordMode} from './chord-mode.mjs?v=886590c057';
 import {harmonyRequestChanged} from './harmony.mjs?v=a92972a827';
 import {setupHarmony} from './harmony-editor.mjs?v=f9d12cc709';
-import {renderCC} from './cc.mjs?v=d5be1c11b7';
+import {renderCC} from './cc.mjs?v=e2e885f80c';
 import {renderScale,renderScaleModal} from './scale.mjs?v=bcc8228f15';
 import {renderRhythmControls,rhythmEditPayload} from './rhythm-controls.mjs';
 import {renderPalette,paletteRemovePayload} from './palette.mjs?v=d934a0c35a';
@@ -12,7 +13,7 @@ import {renderHardwareOrbit} from './orbit.mjs?v=b14d15f367';
 import {setupManual} from './manual.mjs?v=17e7ffad90';
 import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,noteName,parseNotes,euclidHit} from './module.mjs?v=08f7f2e951';
 import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=6bb2561018';
-import {LiveMonitor} from './live.mjs?v=79937b2913';
+import {LiveMonitor} from './live.mjs?v=5709598627';
 import {renderLiveSteps,liveBarLabel} from './steps.mjs?v=0df1ccd105';
 const $=id=>document.getElementById(id), number=i=>String(i+1).padStart(2,'0');
 if(document.querySelector('meta[name="seq-hosting"][content="static"]')) {
@@ -289,7 +290,7 @@ function renderLive(){
     const rgb=liveReady&&liveState?.visual?.leds?.slice((i+1)*3,(i+2)*3);
     node.style.setProperty('--hardware-led',rgb?.length===3?`rgb(${[...rgb].join(',')})`:'transparent');
     node.classList.toggle('hardware-current',!!liveReady&&liveState?.track===i);
-    node.title=liveReady?'Track '+(i+1)+' · indicator mirrors the keyboard LED':'Track '+(i+1)+' · hardware unavailable';
+    renderTrackMute(node,liveState,liveReady,i);
   });
   updateTransferControls();
   $('harmony-open').title='Harmony workshop · Ctrl + Shift + Space';

@@ -48,6 +48,8 @@ export function renderCC(root,state,ready){
     cell.querySelector('small').textContent=`CH ${slot.channel+1}${selected?' · KNOB':''}`;
     cell.title=`Hold ${key} + turn knob to change CC ${slot.controller}. Shift accelerates. Double-tap and hold for a temporary tweak.`;
   });
+  root.querySelector('.cc-status').title=ccStatus(cc,ready);
   const selected=cc.selected===null?null:cc.slots[cc.selected];
   root.querySelector('.cc-gesture').textContent=`${cc.automationSupported?`${cc.automationShiftPgDn?'Shift + PgDn':'T'}: ${cc.manual?'resume automation':'switch to Manual'} · `:''}${selected?`Hold ${ccKeyLabel(selected.keycode)} + turn knob → CC ${selected.controller}`:'Hold a labelled key + turn knob'} · ±3 per turn · Shift: ±15 · Double-tap + hold: temporary · F1–F12: target track · \\: exit CC`;
+  root.querySelector('.cc-gesture').title=root.querySelector('.cc-gesture').textContent;
 }

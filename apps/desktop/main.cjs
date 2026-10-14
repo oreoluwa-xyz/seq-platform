@@ -144,12 +144,44 @@ async function smokeTest() {
     await window.webContents.executeJavaScript(`(async()=>{
         const {renderCC}=await import('/ui/cc.mjs');
         document.body.dataset.liveMode='cc';
-        renderCC(document.querySelector('#cc-dock'),{cc:{active:true,latched:false,manual:true,track:0,selected:0,slots:Array.from({length:8},(_,i)=>({keycode:20+i,controller:70+i,channel:0,value:16*i,held:i===0}))}},true);
+        renderCC(document.querySelector('#cc-dock'),{cc:{active:true,latched:false,manual:true,track:0,selected:0,slots:Array.from({length:16},(_,i)=>({keycode:20+i,controller:70+i,channel:0,value:8*i,held:i===0}))}},true);
     })()`);
     await new Promise(resolve => setTimeout(resolve, 150));
     check(await window.webContents.executeJavaScript("!document.querySelector('#cc-dock').hidden && getComputedStyle(document.querySelector('#cc-dock')).position === 'static' && getComputedStyle(document.querySelector('.hardware-rhythm')).display === 'none' && document.querySelector('#cc-dock').getBoundingClientRect().top >= document.querySelector('#tracks').getBoundingClientRect().bottom"), 'Held CC mode replaces rhythm without covering tracks');
+    const allCCFit = `(()=>{
+        const cells=[...document.querySelectorAll('.cc-slot')];
+        return cells.length===16 && cells.every(cell=>{const r=cell.getBoundingClientRect();return r.top>=document.querySelector('#tracks').getBoundingClientRect().bottom&&r.bottom<=innerHeight&&r.right<=innerWidth;});
+    })()`;
+    check(await window.webContents.executeJavaScript(allCCFit), 'All 16 CC controls fit the short strip');
+    await window.webContents.executeJavaScript(`(async()=>{
+        const {renderTrackMute}=await import('/ui/track-status.mjs');
+        document.querySelectorAll('#tracks .track').forEach((node,i)=>renderTrackMute(node,{mutes:{muted:2,partial:4}},true,i));
+    })()`);
+    check(await window.webContents.executeJavaScript("document.querySelectorAll('#tracks [data-mute=muted]').length===1 && document.querySelectorAll('#tracks [data-mute=partial]').length===1"), 'Distinct whole-track and partial mute indicators');
+    await new Promise(resolve=>setTimeout(resolve,100));
     fs.writeFileSync(path.join(app.getPath('userData'), 'performance-cc.png'), (await window.webContents.capturePage()).toPNG());
-    console.log(JSON.stringify({result: 'PASS', ownedService: service.owned, midi, statePath, screenshot: path.join(app.getPath('userData'), 'performance.png')}));
+    window.setSize(520, 250);
+    await new Promise(resolve=>setTimeout(resolve,150));
+    fs.writeFileSync(path.join(app.getPath('userData'), 'performance-cc-minimum.png'), (await window.webContents.capturePage()).toPNG());
+    check(await window.webContents.executeJavaScript(allCCFit), 'All CC controls fit at the minimum window size');
+    const web = new BrowserWindow({width:1280,height:800,show:false,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});
+    await web.loadURL(`${service.origin}/ui/`);
+    await web.webContents.executeJavaScript(`(async()=>{
+        const {renderTrackMute}=await import('/ui/track-status.mjs');
+        const {renderCC}=await import('/ui/cc.mjs');
+        document.querySelectorAll('#tracks .track').forEach((node,i)=>renderTrackMute(node,{mutes:{muted:2,partial:4}},true,i));
+        renderCC(document.querySelector('#cc-dock'),{cc:{active:true,latched:true,track:0,selected:null,slots:Array.from({length:16},(_,i)=>({keycode:20+i,controller:16+i,channel:0,value:64,held:false}))}},true);
+    })()`);
+    web.show();
+    await new Promise(resolve=>setTimeout(resolve,150));
+    check(await web.webContents.executeJavaScript(`(()=>{
+        const muted=document.querySelector('#tracks [data-mute=muted] .track-mute-full');
+        const cells=[...document.querySelectorAll('.cc-slot')];
+        return !window.seqDesktop && !document.body.classList.contains('desktop-performance') && muted.textContent==='Muted' && getComputedStyle(muted).display!=='none' && cells.length===16 && cells.every(c=>{const r=c.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;});
+    })()`), 'Browser UI shows explicit mute labels and all sixteen CC controls');
+    fs.writeFileSync(path.join(app.getPath('userData'),'web-cc-mutes.png'),(await web.webContents.capturePage()).toPNG());
+    web.destroy();
+    console.log(JSON.stringify({result: 'PASS' , ownedService: service.owned, midi, statePath, screenshot: path.join(app.getPath('userData'), 'performance.png')}));
     app.quit();
 }
 if (!app.requestSingleInstanceLock()) app.quit();

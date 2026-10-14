@@ -44,7 +44,13 @@ export function decodePalette(bytes){
   if([...saved,...capture].some(e=>e.note>127))throw Error('Invalid palette pitch.');
   if(bytes[957]>pending)throw Error('Invalid retained palette size.');
   if(bytes[954]>1||(bytes[954]===1&&bytes[955]>1))throw Error('Invalid palette controls.');
-  return {...state,temp:bytes[958]&16?{active:!!(bytes[958]&32),queued:!!(bytes[958]&64)}:null,palette:flags&1?{removeSupported:!!(bytes[958]&8),root:bytes[959],clearShortcut:!!(bytes[958]&4),replaceShortcut:!!(bytes[958]&1),starter:!!(bytes[958]&1)&&!!(bytes[958]&2),captureEditable:!!(bytes[956]&1),replace:bytes[956]&1?!!(bytes[956]&2):true,full:!!(bytes[956]&4),retained:bytes[957],editable:bytes[954]===1,mode:bytes[954]===1&&!bytes[955]?'palette':'transpose',overrides:bytes[952]|bytes[953]<<8,held:!!(flags&2),shift:!!(flags&4),capturing:!!(flags&8),latched:!!(flags&16),pin:pin===255?null:pin,saved,capture,slots}:null,paletteSupported:true};
+  return {...state,muteSupported:!!(bytes[958]&128),temp:bytes[958]&16?{active:!!(bytes[958]&32),queued:!!(bytes[958]&64)}:null,palette:flags&1?{removeSupported:!!(bytes[958]&8),root:bytes[959],clearShortcut:!!(bytes[958]&4),replaceShortcut:!!(bytes[958]&1),starter:!!(bytes[958]&1)&&!!(bytes[958]&2),captureEditable:!!(bytes[956]&1),replace:bytes[956]&1?!!(bytes[956]&2):true,full:!!(bytes[956]&4),retained:bytes[957],editable:bytes[954]===1,mode:bytes[954]===1&&!bytes[955]?'palette':'transpose',overrides:bytes[952]|bytes[953]<<8,held:!!(flags&2),shift:!!(flags&4),capturing:!!(flags&8),latched:!!(flags&16),pin:pin===255?null:pin,saved,capture,slots}:null,paletteSupported:true};
+}
+export function decodeMuteSummary(bytes){
+  if(bytes[5]!==1)return null;
+  const muted=bytes[6]|bytes[7]<<8,partial=bytes[8]|bytes[9]<<8;
+  if((muted|partial)&~4095 || (muted&partial))throw Error('Invalid mute summary.');
+  return {muted,partial};
 }
 export function decodeCC(bytes){
   if(bytes[160]>1||(bytes[160]===1&&bytes[161]>1))throw Error('Invalid CC automation mode.');
@@ -92,18 +98,19 @@ export class LiveMonitor {
           // Separate snapshots can straddle a bar boundary. Retry promptly, without marking USB lost.
           if(state.chordMode.enabled&&state.chordMode.bar!==state.bar)return null;
         }
-        if(bytes[637]===1&&state.visual.mode==='cc'){
+        if(bytes[637]===1&&(state.visual.mode==='cc'||state.muteSupported)){
           const head=await this.connection.request(21),ccBytes=new Uint8Array(192);
           if(head.length!==64||head[0]!==1||!head[62]||head[62]>127||head[63]!==1)throw Error('Invalid CC header.');
           ccBytes.set(head);
-          for(let offset=64;offset<192;offset+=64){
+          state.mutes=state.muteSupported?decodeMuteSummary(head):null;
+          if(state.visual.mode==='cc')for(let offset=64;offset<192;offset+=64){
             if(this.stopped||this.paused||!this.canPoll())return null;
             const chunk=await this.connection.request(21,head[62],offset);
             if(chunk.length!==64)throw Error('Incomplete CC snapshot.');
             ccBytes.set(chunk,offset);
           }
           if(this.stopped||this.paused||!this.canPoll())return null;
-          state.cc=decodeCC(ccBytes);
+          if(state.visual.mode==='cc')state.cc=decodeCC(ccBytes);
         }
         return state;
       }

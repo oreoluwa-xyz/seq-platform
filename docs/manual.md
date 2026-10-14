@@ -484,3 +484,9 @@ On **drums**, Ctrl + Euclid prints generated hits into the **selected lane**, in
 Printing captures the underlying pattern before probability skips, mutes and evolving accumulator movement; it does not record one randomized performance. Up to 128 note events fit, counting each chord voice. If the print would exceed that limit, Esc flashes magenta and the original notes and Euclid mode remain unchanged. Finish recording, step editing, chord/palette capture and project transfers first. This shortcut supports melodic Euclid tracks and the selected drum lane, but not Chord Bank tracks.
 
 You can now add notes between the printed hits, remove notes, or edit their pitches, velocities and lengths. **Space + Enter** saves the result. Plain Euclid tap still only exits the controls; **Ctrl + Shift + Euclid + note keys** still replaces the palette.
+
+### Live track mute indicators
+
+Desktop and web track lists use the same live mute information. Fully muted tracks show a steady red indicator with **Muted** in the workshop or **M** in the desktop strip. A pulsing red indicator with **Partial mute** (or **±**) means some drum lanes or a wrapped melodic layer are muted while other layers may still sound. Hover a track for its status. Pulsing respects reduced-motion preferences. A disconnected keyboard or older firmware reports mute status as unavailable rather than assuming the track is unmuted.
+
+CC controls use compact tiles with the keyboard key, CC number, value and MIDI channel. The desktop strip keeps all sixteen in two rows; the web workshop adapts its column count to available width.

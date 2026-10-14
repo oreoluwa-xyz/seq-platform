@@ -135,3 +135,48 @@ body.desktop-performance.cc-dock-open{padding-bottom:0}
  .desktop-performance #live-scale:not([open]){align-self:end;min-width:0;overflow:hidden}
  .desktop-performance #live-scale:not([open]) summary{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
 }
+
+/* Sixteen CC controls in two short rows, retaining their circular meters. */
+.desktop-performance #cc-dock{padding:0;align-self:start}
+.desktop-performance .cc-dock-heading{gap:6px;min-height:20px}
+.desktop-performance .cc-dock-heading>div{gap:8px;flex-wrap:nowrap;min-width:0}
+.desktop-performance .cc-target{font-size:11px;white-space:nowrap}
+.desktop-performance .cc-status{font-size:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.desktop-performance .cc-collapse{font-size:9px;padding:2px 5px}
+.desktop-performance .cc-dock-body{padding-top:3px}
+.desktop-performance .cc-slots{grid-template-columns:repeat(8,minmax(0,1fr));gap:3px}
+.desktop-performance .cc-slot{display:grid;grid-template-columns:minmax(0,1fr) 32px;grid-template-rows:16px 16px auto;gap:0 3px;padding:3px 4px;text-align:left}
+.desktop-performance .cc-slot-label{display:contents}
+.desktop-performance .cc-slot kbd{grid-column:1;grid-row:1;justify-self:start;font-size:9px;padding:0 3px;line-height:13px}
+.desktop-performance .cc-slot-label span{grid-column:1;grid-row:2;align-self:center;font-size:8px;white-space:nowrap}
+.desktop-performance .cc-knob{grid-column:2;grid-row:1 / span 2;width:32px;height:32px;margin:0}
+.desktop-performance .cc-knob-face{inset:6px}
+.desktop-performance .cc-knob-face strong{font-size:9px}
+.desktop-performance .cc-knob-face i:before{height:3px;top:1px}
+.desktop-performance .cc-slot small{grid-column:1/-1;min-height:0;font-size:7px;line-height:10px;white-space:nowrap}
+.desktop-performance .cc-gesture{font-size:8px;line-height:1.2;margin:3px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:800px){
+ .desktop-performance[data-live-mode=cc] .live-readouts,.desktop-performance[data-live-mode=cc] #live-scale{display:none}
+ .desktop-performance[data-live-mode=cc] #cc-dock{grid-column:1/-1}
+ .desktop-performance .cc-slot{padding:2px;gap:0 1px;grid-template-columns:minmax(0,1fr) 26px}
+ .desktop-performance .cc-knob{width:26px;height:26px;align-self:center}
+ .desktop-performance .cc-knob-face{inset:4px}
+}
+
+@media(max-width:800px){
+ .desktop-performance .desktop-toolbar{gap:4px;padding:4px 8px;flex-wrap:nowrap}
+ .desktop-performance .desktop-toolbar>span:first-child{font-size:18px}
+ .desktop-performance .desktop-toolbar button{font-size:9px;padding:3px 4px;white-space:nowrap}
+ .desktop-performance .desktop-toolbar .temp-heading{font-size:9px;gap:3px;white-space:nowrap}
+ .desktop-performance .cc-dock-heading .eyebrow{font-size:7px;letter-spacing:0;white-space:nowrap}
+ .desktop-performance .cc-status{max-width:180px}
+ .desktop-performance .cc-slot{grid-template-rows:13px 13px auto}
+ .desktop-performance .cc-slot small{line-height:8px}
+}
+
+.desktop-performance #tracks .track-light{flex:0 0 7px}
+.desktop-performance #tracks .track-mute{flex:0 0 auto}
+@media(max-width:800px){.desktop-performance #tracks .track{gap:2px;padding:4px 3px}.desktop-performance #tracks .track-index{font-size:9px}.desktop-performance #tracks .track-light{width:6px;height:6px;flex-basis:6px}.desktop-performance #tracks .track-mute{font-size:8px}}
+
+.desktop-performance .track-mute-short{display:inline}
+.desktop-performance #tracks .track .track-mute-full{display:none}
