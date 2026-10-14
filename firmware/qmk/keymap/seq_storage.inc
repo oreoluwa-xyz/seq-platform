@@ -6,9 +6,24 @@ _Static_assert(EECONFIG_SIZE <= WEAR_LEVELING_LOGICAL_SIZE, "EEPROM user block o
  * runtime pointers are persisted. Decode is validated before changing state. */
 #define SEQ_PROJECT_VERSION 1
 #define SEQ_TRANSFER_CAPACITY 6144
+#define SEQ_TEMP_CAPACITY 7424
+static bool seq_temp_active, seq_temp_enter_held, seq_temp_escape_held;
+static uint16_t seq_temp_length;
+static bool seq_temp_restore_pending;
 /* Save/load and USB transfers are mutually exclusive, so share scratch RAM. */
+typedef struct {
+    seq_chord_event_t drafts[12];
+    seq_euclid_track_t euclid[12];
+    seq_accumulator_state_t accumulators[12];
+    uint16_t picked[12];
+    uint8_t last_semitone[12], drum_note[12];
+    uint8_t slot, child_slot, save_status;
+    uint16_t bar;
+    bool child, dirty;
+} seq_temp_context_t;
 static union {
-    uint8_t transfer[SEQ_TRANSFER_CAPACITY];
+    seq_temp_context_t temp;
+    uint8_t transfer[SEQ_TEMP_CAPACITY];
     uint8_t saved[EECONFIG_USER_DATA_SIZE];
 } seq_project_scratch;
 #define seq_transfer_buffer seq_project_scratch.transfer
@@ -72,11 +87,11 @@ static void seq_project_global(seq_codec_t *c) {
     } else if (c->read) scale = (seq_scale_context_t){0};
     if (c->read && c->apply && c->ok) { seq_scale_global = scale; seq_scale_revision++; }
 }
-static void seq_project_module(seq_codec_t *c, uint8_t track, bool chord_mode) {
+static void seq_project_module(seq_codec_t *c, uint8_t track, bool chord_mode, bool legacy_track) {
     seq_module_t module;
     if (c->read) {
         uint16_t size = c->size - c->pos;
-        if (!seq_module_decode(&module, c->data + c->pos, size)) {
+        if (!seq_module_decode(&module, c->data + c->pos, size) && !(legacy_track && seq_module_migrate_bank(&module, c->data + c->pos, size))) {
             c->ok = false;
             return;
         }
@@ -331,7 +346,7 @@ static void seq_project_track(seq_codec_t *c, uint8_t t) {
     if (chord_mode && c->read && (c->pos >= c->size || c->data[track_start + 2] != SEQ_SLOT_KIND_MELODIC || c->data[track_start + 3])) c->ok = false;
     /* Older project objects have no module extension and retain Euclid. */
     if (c->ok && (!c->read || c->pos < c->size))
-        seq_project_module(c, t, chord_mode);
+        seq_project_module(c, t, chord_mode, true);
     else if (c->ok && c->read && c->apply) {
         seq_module_default(&seq_modules[t], SEQ_MODULE_EUCLID);
         euclid_tracks[t].pitch_mode = 1; /* Pre-module projects used offsets. */
@@ -360,7 +375,7 @@ static bool seq_project_object(uint8_t object, uint8_t *data, uint16_t *size, bo
     else if (object <= 12)
         seq_project_track(&codec, object - 1u);
     else if (object <= 24)
-        seq_project_module(&codec, object - 13u, false);
+        seq_project_module(&codec, object - 13u, false, false);
     else if (object <= 36 && !read) {
         if (!seq_harmony_source(&codec, object - 25)) return false;
     } else
@@ -415,7 +430,7 @@ static bool seq_project_saved_decode(bool apply) {
     return pos == length;
 }
 static void seq_storage_save_if_dirty(void) {
-    if (!seq_dirty || seq_transfer_active || seq_state.running) return;
+    if (!seq_dirty || seq_transfer_active || seq_temp_active || seq_state.running) return;
     seq_flush_pending_erase();
     uint16_t pos = 10;
     for (uint8_t object = 0; object <= 12; object++) {
@@ -476,6 +491,10 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
     uint8_t status     = 0;
     uint8_t reply[36]  = {0};
     uint8_t reply_size = 0;
+    if (seq_temp_active && command >= 1 && command <= 9) {
+        virtual_midi_backup_reply(command, object, offset, 2, NULL, 0);
+        return;
+    }
     if (command == 24) {
         if (object || size || (offset != 0 && offset != 64)) {
             virtual_midi_backup_reply(command, object, offset, 3, NULL, 0);
@@ -497,15 +516,20 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
         return;
     }
     if (command == 18) {
-        /* Live pitch edits: [0, mode], [1] at a step, [2, replace] capture preference.
-         * Reject stale-track requests and competing hardware edits. */
-        if (object >= 12 || !data || !size || data[0] > 2 ||
-            (data[0] != 1 ? size != 2 || data[1] > 1 || offset : size != 1 || offset >= seq_track_length_steps(object))) {
+        /* Remove includes the displayed palette to reject stale slot indices. */
+        if (object >= 12 || !data || !size || data[0] > 3 ||
+            (data[0] == 3 ? size != 12 || offset || data[1] >= SEQ_EUCLID_NOTE_POOL_MAX || data[2] > SEQ_EUCLID_NOTE_POOL_MAX :
+             data[0] != 1 ? size != 2 || data[1] > 1 || offset : size != 1 || offset >= seq_track_length_steps(object))) {
             status = 3;
         } else if (object != view_slot || !slot_uses_melodic(object) || seq_modules[object].kind != SEQ_MODULE_EUCLID ||
                    seq_transfer_active || record_state.armed || step_edit.active || chord_capture.active || euclid_palette_capture.active || melodic_key_mask[object] ||
                    (data[0] == 1 && (euclid_tracks[object].pitch_mode || !euclid_tracks[object].enabled))) {
             status = 2;
+        } else if (data[0] == 3 && (data[2] != euclid_tracks[object].note_count || data[3] != euclid_tracks[object].palette_root ||
+                   data[1] >= data[2] || memcmp(data + 4, euclid_tracks[object].note_pool, data[2]))) {
+            status = 2;
+        } else if (data[0] == 3) {
+            seq_euclid_palette_remove(object, data[1], timer_read32());
         } else if (data[0] == 1 && !mel_track_remove_step_all(slot_melodic_track(object), offset)) {
             status = 4; /* Splitting a sustained event can exhaust event capacity. */
         } else if (data[0] == 2) {
@@ -535,12 +559,12 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
     if (command == 15) {
         /* Catalog v1, module v2, two stages, eight voices, max wire bytes,
          * followed by (component ID, contract version) pairs. */
-        const uint8_t catalog[] = {1, 3, 2, SEQ_CHORD_VOICES, SEQ_MODULE_WIRE_MAX, 0, 1, 1, 2, 1, 3, 1, 4, 1, 3, 2};
+        const uint8_t catalog[] = {1, 3, 2, SEQ_CHORD_VOICES, SEQ_MODULE_WIRE_MAX, 0, 1, 1, 2, 1, 3, 1, 3, 2};
         virtual_midi_backup_reply(command, object, offset, (object || offset || size) ? 3 : 0, catalog, (object || offset || size) ? 0 : sizeof(catalog));
         return;
     }
     if (command == 10) {
-        uint8_t  capabilities[21] = {SEQ_MODULE_VERSION, SEQ_TRACK_COUNT, SEQ_CHORD_SLOTS, SEQ_CHORD_VOICES, SEQ_MODULE_WIRE_MAX, 0, 3};
+        uint8_t  capabilities[21] = {SEQ_MODULE_VERSION, SEQ_TRACK_COUNT, 0, SEQ_CHORD_VOICES, SEQ_MODULE_WIRE_MAX, 0, 1};
         uint16_t melodic_mask     = 0;
         for (uint8_t i = 0; i < 12; i++) {
             capabilities[7 + i] = seq_modules[i].kind;

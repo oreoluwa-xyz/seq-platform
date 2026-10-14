@@ -24,7 +24,7 @@ static void seq_live_snapshot(uint8_t *out) {
     out[3]               = slot_is_melodic(track) ? (slot_is_wrapper(track) ? 2 : 1) : 0;
     out[4]               = seq_modules[track].kind;
     out[5]               = midi_channel_for_track(melodic_view ? melodic : drum);
-    out[6]               = seq_modules[track].kind == SEQ_MODULE_CHORD_BANK ? seq_modules[track].config.chords.selected : 255;
+    out[6]               = 255;
     out[7]               = seq_drum_pool_used();
     seq_live_u16(out + 8, bpm);
     seq_live_u16(out + 10, seq_track_step_position[track]);
@@ -36,7 +36,6 @@ static void seq_live_snapshot(uint8_t *out) {
     for (uint8_t i = 0; i < 12; i++) {
         if (slot_is_melodic(i)) melodic_mask |= 1u << i;
         if (slot_is_melodic(i) && slot_is_wrapper(i)) wrapper_mask |= 1u << i;
-        if (seq_modules[i].kind == SEQ_MODULE_CHORD_BANK) module_mask |= 1u << i;
     }
     seq_live_u16(out + 18, melodic_mask);
     seq_live_u16(out + 20, wrapper_mask);
@@ -58,11 +57,6 @@ static void seq_live_snapshot(uint8_t *out) {
         for (uint8_t lane = 0; lane < SEQ_DRUM_NOTE_COUNT; lane++) {
             if (lanes & (1u << lane)) seq_live_note(out + 40, drum_note_for_track(lane));
         }
-    } else if (seq_modules[track].kind == SEQ_MODULE_CHORD_BANK) {
-        uint8_t notes[SEQ_CHORD_VOICES];
-        uint8_t count = seq_module_chord_notes(&seq_modules[track], out[6], notes);
-        for (uint8_t i = 0; i < count; i++)
-            seq_live_note(out + 40, notes[i]);
     } else {
         uint16_t keys = melodic_key_mask[melodic] ? melodic_key_mask[melodic] : melodic_last_mask[melodic];
         for (uint8_t i = 0; i < SEQ_MELODIC_KEY_COUNT; i++) {

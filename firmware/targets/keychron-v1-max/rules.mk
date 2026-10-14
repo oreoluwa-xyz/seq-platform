@@ -11,11 +11,11 @@ NKRO_ENABLE = no
 OPT_DEFS += -UAPDAPTIVE_NKRO_ENABLE
 OPT = s
 
-SRC += seq_eeprom.c sequencer.c melodic_sequencer.c virtual_midi.c sequencer_toggle.c drum_lane_pool.c seq_automation.c seq_module.c
+SRC += seq_midi_transport.c seq_eeprom.c sequencer.c melodic_sequencer.c virtual_midi.c sequencer_toggle.c drum_lane_pool.c seq_automation.c seq_module.c
 
 # The vendor post-task MIDI drain discards incoming packets. Route it through
 # QMK's MIDI parser without changing the shared Keychron implementation.
-LDFLAGS += -Wl,--wrap=midi_ep_task
+LDFLAGS += -Wl,--wrap=midi_ep_task -Wl,--wrap=send_midi_packet
 
 # Keep project saves within the process-stack budget.
 LDFLAGS += -Wl,--wrap=eeprom_update_block

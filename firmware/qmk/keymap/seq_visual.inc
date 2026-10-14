@@ -20,7 +20,6 @@ static uint8_t seq_visual_mode(void) {
     if (seq_scale_editing) return 10;
     if (seq_track_confirmation_active()) return 9;
     if (switch_state.held) return 6;
-    if (seq_modules[view_slot % 12].kind == SEQ_MODULE_CHORD_BANK && cmd_state.held) return 4;
     if (cc_context.active || cc_mode.held) return 5;
     if (step_edit.active) return step_edit.is_drum ? 7 : 8;
     if (seq_chord_mode[view_slot] && !slot_viewing_child(view_slot)) return 11;
@@ -35,13 +34,7 @@ static void seq_projected_step_notes(uint8_t slot, uint16_t step, uint8_t *notes
     seq_module_export_selected(slot, &module);
     uint8_t track = slot_melodic_track(slot);
     uint8_t count = mel_track_event_count(track);
-    if (module.composed && module.kind == SEQ_MODULE_CHORD_BANK) {
-        if (!seq_composed_chord_hit(slot, step)) return;
-        uint8_t pitches[SEQ_CHORD_VOICES];
-        uint8_t voices = seq_module_chord_notes(&module, module.config.chords.selected, pitches);
-        for (uint8_t n = 0; n < voices; n++) seq_live_note(notes, pitches[n]);
-        return;
-    }
+
     int8_t offset = 0;
     bool euclidean = module.kind == SEQ_MODULE_EUCLID && euclid_tracks[slot].enabled;
     if (euclidean && !seq_euclid_step_hit(slot, step, NULL, &offset)) return;
@@ -107,6 +100,7 @@ static void seq_palette_snapshot(void) {
     uint8_t *out = seq_visual_image + SEQ_RHYTHM_SIZE;
     memset(out + 40, 255, 16);
     out[2] = 255;
+    out[62] = 16 | (seq_temp_active ? 32 : 0) | (seq_temp_restore_pending ? 64 : 0); /* Global TEMP capability, active, queued. */
     if (!slot_uses_melodic(slot) || seq_modules[slot].kind != SEQ_MODULE_EUCLID) return;
     uint8_t track = slot_melodic_track(slot);
     const seq_euclid_track_t *e = &euclid_tracks[slot];
@@ -119,7 +113,8 @@ static void seq_palette_snapshot(void) {
     out[59] = e->pitch_mode;
     out[60] = 1 | ((capturing ? euclid_palette_capture.replace : seq_palette_replace[slot]) ? 2 : 0) | (capturing && euclid_palette_capture.full ? 4 : 0);
     out[61] = capturing ? euclid_palette_capture.retained : 0;
-    out[62] = 1 | (!e->palette_authored ? 2 : 0) | 4; /* Replace shortcut; starter; clear supported. */
+    out[62] |= 1 | (!e->palette_authored ? 2 : 0) | 4 | 8; /* Replace shortcut; starter; clear; individual removal. */
+    out[63] = e->palette_root;
     for (uint8_t i = 0; i < e->note_count && i < 8; i++) {
         int16_t pitch = (int16_t)out[3] + e->note_pool[i];
         out[8 + i] = (uint8_t)e->note_pool[i];
@@ -247,8 +242,7 @@ static bool seq_harmony_source(seq_codec_t *c, uint8_t slot) {
         uint8_t notes[16] = {0}, pitch = 255;
         seq_projected_step_notes(slot, step, notes);
         for (uint8_t n = 0; n < 128; n++) if (notes[n/8] & (1u << (n%8))) pitch = n;
-        bool chord_pulse = seq_modules[slot].composed && seq_modules[slot].kind == SEQ_MODULE_CHORD_BANK && seq_composed_chord_hit(slot, step);
-        bool onset = pitch != 255 && (euclidean || chord_pulse || pitch != previous);
+        bool onset = pitch != 255 && (euclidean || pitch != previous);
         for (uint8_t n = 0; !onset && pitch != 255 && n < mel_track_event_count(track); n++) {
             mel_event_snapshot_t event;
             if (mel_track_event_at(track, n, &event) && event.start_step == step) onset = true;

@@ -61,6 +61,10 @@ void                        virtual_midi_task(uint32_t now);
 const virtual_midi_state_t *virtual_midi_state(void);
 void                        virtual_midi_clear_events(void);
 
+void virtual_midi_flush(void);
+bool virtual_midi_transport_fault(void);
+void virtual_midi_resync_clock(uint32_t position, uint32_t boundary_ms, uint32_t now);
+
 void virtual_midi_set_clock_output(bool enabled);
 void virtual_midi_set_tempo(uint16_t tempo);
 

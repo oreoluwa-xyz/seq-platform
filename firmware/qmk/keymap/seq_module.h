@@ -9,23 +9,14 @@
 #define SEQ_MODULE_WIRE_MAX 192
 
 /* Versioned, ordered contracts: rhythm emits pulses; pitch emits bounded voices.
- * IDs 1/2 are stored/Euclidean rhythm; IDs 3/4 are track palette/chord bank. */
+ * IDs 1/2 are stored/Euclidean rhythm; ID 3 is the track palette.
+ * ID 4 and module kind 1 are reserved for read-only legacy migration. */
 typedef struct {
     uint16_t steps, fills, rotation, template_mask;
     uint8_t  kind, enabled, probability, accent, ratchet, template_active;
 } seq_rhythm_component_t;
 
 typedef enum { SEQ_MODULE_EUCLID = 0, SEQ_MODULE_CHORD_BANK = 1 } seq_module_kind_t;
-typedef struct {
-    uint8_t  count, velocity;
-    uint16_t length;
-    uint8_t  notes[SEQ_CHORD_VOICES];
-} seq_chord_slot_t;
-typedef struct {
-    uint8_t          selected;
-    int8_t           transpose, inversion;
-    seq_chord_slot_t slots[SEQ_CHORD_SLOTS];
-} seq_chord_bank_t;
 typedef struct {
     uint16_t steps, fills, rotation, template_mask;
     uint8_t  enabled, probability, accent, ratchet, root, count, pin, template_active;
@@ -37,7 +28,6 @@ typedef struct {
     bool                   composed;
     seq_rhythm_component_t rhythm;
     union {
-        seq_chord_bank_t    chords;
         seq_module_euclid_t euclid;
     } config;
 } seq_module_t;
@@ -47,7 +37,8 @@ bool seq_module_valid(const seq_module_t *module);
 /* Decode validates the entire object before assigning the destination. */
 bool                   seq_module_decode(seq_module_t *module, const uint8_t *data, uint16_t size);
 bool                   seq_module_encode(const seq_module_t *module, uint8_t *data, uint16_t *size);
-uint8_t                seq_module_chord_notes(const seq_module_t *module, uint8_t slot, uint8_t *notes);
+/* Read-only migration for saved tracks; new bank installations remain rejected. */
+bool seq_module_migrate_bank(seq_module_t *module, const uint8_t *data, uint16_t size);
 seq_rhythm_component_t seq_module_rhythm(const seq_module_t *module);
 bool                   seq_rhythm_valid(const seq_rhythm_component_t *rhythm);
 bool                   seq_rhythm_hit(const seq_rhythm_component_t *rhythm, uint16_t step, uint16_t *index);

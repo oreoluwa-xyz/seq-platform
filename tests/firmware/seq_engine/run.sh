@@ -19,3 +19,4 @@ clang -std=c11 -Wall -Wextra -Werror -I. sequencer_toggle.c tests/seq_toggle/tes
 PYTHONDONTWRITEBYTECODE=1 python3 tests/seq_engine/test_backup.py
 
 node ui/test.mjs "$seq_test_output/engine"
+sh tests/seq_engine/run_timing.sh

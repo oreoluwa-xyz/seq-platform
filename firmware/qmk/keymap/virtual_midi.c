@@ -4,6 +4,7 @@
 
 #include <string.h>
 
+
 #ifdef MIDI_ENABLE
 #    include "qmk_midi.h"
 #    include "midi.h"
@@ -16,6 +17,50 @@
 #        include "usb_util.h"
 #    endif
 #endif
+
+#if defined(MIDI_ENABLE) && defined(PROTOCOL_CHIBIOS)
+#    include "seq_midi_transport.h"
+#    include "usb_driver.h"
+#    include "usb_endpoints.h"
+
+extern usb_endpoint_in_t usb_endpoints_in[USB_ENDPOINT_IN_COUNT];
+
+bool seq_midi_usb_connected(void) {
+    return usb_connected_state();
+}
+
+bool seq_midi_usb_write(const uint8_t *data, uint8_t size) {
+    usb_endpoint_in_t *endpoint = &usb_endpoints_in[USB_ENDPOINT_IN_MIDI];
+    osalSysLock();
+    if (usbGetDriverStateI(endpoint->config.usbp) != USB_ACTIVE ||
+        obqGetEmptyBufferTimeoutS(&endpoint->obqueue, TIME_IMMEDIATE) != MSG_OK) {
+        osalSysUnlock();
+        return false;
+    }
+    memcpy(endpoint->obqueue.ptr, data, size);
+    obqPostFullBufferS(&endpoint->obqueue, size);
+    osalSysUnlock();
+    return true;
+}
+
+void __wrap_send_midi_packet(MIDI_EventPacket_t *event) {
+    seq_midi_tx_enqueue((const uint8_t *)event);
+}
+#endif
+
+void virtual_midi_flush(void) {
+#if defined(MIDI_ENABLE) && defined(PROTOCOL_CHIBIOS)
+    seq_midi_tx_flush();
+#endif
+}
+
+bool virtual_midi_transport_fault(void) {
+#if defined(MIDI_ENABLE) && defined(PROTOCOL_CHIBIOS)
+    return seq_midi_tx_fault();
+#else
+    return false;
+#endif
+}
 
 #ifndef VIRTUAL_MIDI_PULSE_MS
 #    define VIRTUAL_MIDI_PULSE_MS 2
@@ -30,10 +75,15 @@ static virtual_midi_state_t state;
 static bool                 clock_output = true;
 static uint16_t             clock_tempo  = 120;
 static uint32_t             clock_error;
+static bool                 clock_needs_resync;
 void                        virtual_midi_set_clock_output(bool enabled) {
     clock_output = enabled;
+#if defined(MIDI_ENABLE) && defined(PROTOCOL_CHIBIOS)
+    seq_midi_tx_set_clock_output(enabled);
+#endif
 }
 void virtual_midi_set_tempo(uint16_t tempo) {
+    if (clock_tempo != tempo) clock_error = 0;
     clock_tempo = tempo ? tempo : 120;
 }
 __attribute__((weak)) void seq_midi_realtime(uint8_t message, uint32_t now) {}
@@ -117,6 +167,10 @@ static void schedule_next_clock_interval(void) {
 void virtual_midi_init(void) {
     memset(&state, 0, sizeof(state));
     clock_error = 0;
+    clock_needs_resync = false;
+#if defined(MIDI_ENABLE) && defined(PROTOCOL_CHIBIOS)
+    seq_midi_tx_init();
+#endif
 #ifdef MIDI_ENABLE
     midi_register_sysex_callback(&midi_device, receive_sysex);
     midi_register_realtime_callback(&midi_device, receive_realtime);
@@ -125,6 +179,9 @@ void virtual_midi_init(void) {
 }
 
 void virtual_midi_start(uint32_t now) {
+#if defined(MIDI_ENABLE) && defined(PROTOCOL_CHIBIOS)
+    seq_midi_tx_resume();
+#endif
     state.running                  = true;
     state.last_clock_ms            = now;
     state.clock_high               = false;
@@ -134,6 +191,7 @@ void virtual_midi_start(uint32_t now) {
     state.clock_interval_error     = 0;
     state.next_clock_due_ms        = now;
     clock_error                    = 0;
+    clock_needs_resync              = false;
     push_event(VIRTUAL_MIDI_EVENT_START, 0, 0, 0, now);
 #if defined(MIDI_ENABLE) && SEQ_MIDI_TRANSPORT_SEND
     if (clock_output) MIDI_IF_READY(midi_send_start(&midi_device));
@@ -219,12 +277,25 @@ void virtual_midi_task(uint32_t now) {
         push_event(VIRTUAL_MIDI_EVENT_RESET_LOW, 0, 0, 0, now);
     }
     for (uint8_t catchup = 0; clock_output && state.running && catchup < 48 && timer_expired32(now, state.next_clock_due_ms); catchup++) {
-        emit_clock_pulse(now);
         uint32_t denominator = (uint32_t)clock_tempo * 24u;
         uint32_t numerator   = 60000u + clock_error;
         state.next_clock_due_ms += numerator / denominator;
         clock_error = numerator % denominator;
+        if (timer_expired32(now, state.next_clock_due_ms)) clock_needs_resync = true;
+        if (!clock_needs_resync) emit_clock_pulse(now);
     }
+    virtual_midi_flush();
+}
+
+void virtual_midi_resync_clock(uint32_t position, uint32_t boundary_ms, uint32_t now) {
+    if (!clock_output || !state.running || !clock_needs_resync) return;
+    if (TIMER_DIFF_32(now, boundary_ms) >= 60000u / ((uint32_t)clock_tempo * 24u)) return;
+    /* Lost clock pulses cannot be replayed on time. Reposition followers at
+     * the next timely straight-grid boundary instead of leaving them behind. */
+    virtual_midi_stop(now);
+    virtual_midi_song_position(position & 0x3FFFu, now);
+    virtual_midi_continue(boundary_ms);
+    virtual_midi_task(now);
 }
 
 void virtual_midi_control_change(uint8_t channel, uint8_t control, uint8_t value, uint32_t now) {
@@ -252,9 +323,13 @@ void virtual_midi_song_position(uint16_t position, uint32_t now) {
 }
 
 void virtual_midi_continue(uint32_t now) {
+#if defined(MIDI_ENABLE) && defined(PROTOCOL_CHIBIOS)
+    seq_midi_tx_resume();
+#endif
     state.running           = true;
     state.next_clock_due_ms = now;
     clock_error             = 0;
+    clock_needs_resync       = false;
     push_event(VIRTUAL_MIDI_EVENT_CONTINUE, 0, 0, 0, now);
 #if defined(MIDI_ENABLE) && SEQ_MIDI_TRANSPORT_SEND
     if (clock_output) MIDI_IF_READY(midi_send_continue(&midi_device));

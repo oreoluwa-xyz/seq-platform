@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include "../../config.h"
+#define SEQ_ENGINE_TEST 1
 #include "../../sequencer.c"
 
 static uint8_t  test_eeprom[EECONFIG_USER_DATA_SIZE];
@@ -151,6 +152,7 @@ static void test_timing_and_external(void) {
     assert(virtual_midi_state()->clock_tick_count == 3289); /* Includes pulse at time zero. */
     seq_transport_stop(test_now);
     seq_external_clock = true;
+    seq_timing_swing = 0; /* External swing is covered by the timing suite. */
     seq_midi_realtime(0xFA, test_now);
     assert(seq_first_step);
     seq_midi_realtime(0xF8, test_now);
@@ -554,90 +556,18 @@ static void test_melodic_euclid_retriggers(void) {
     assert(seq_slot_playback_mask(0, 1) == 0);
 }
 static void test_modules(void) {
-    reset();
-    seq_enter(test_now);
-    seq_module_t module, decoded;
-    seq_module_default(&module, SEQ_MODULE_CHORD_BANK);
-    assert(seq_module_valid(&module));
-    uint8_t  data[SEQ_MODULE_WIRE_MAX];
-    uint16_t size = sizeof(data);
-    assert(seq_module_encode(&module, data, &size));
-    assert(seq_module_decode(&decoded, data, size));
-    for (uint16_t length = 0; length < size; length++)
-        assert(!seq_module_decode(&decoded, data, length));
-    seq_drum_step_set(0, 0, 0, true);
-    mel_track_add_note(0, 8, 9, 70, 90);
-    seq_automation_record(0, 0, 3, 88);
-    assert(seq_project_restore_object(13, data, size));
-    assert(seq_slots[0].kind == SEQ_SLOT_KIND_MELODIC && seq_slots[0].wraps_drum);
-    assert(seq_drum_step_get(0, 0, 0) && mel_track_event_count(0) == 1 && seq_automation_count() == 1);
-    euclid_tracks[0].enabled     = true;
-    euclid_tracks[0].probability = 0;
-    assert(!seq_euclid_step_hit(0, 0, NULL, NULL));
-    assert(seq_module_stamp(0, 15));
-    assert(mel_track_event_count(0) == 7); /* Three voices across the loop boundary. */
-    seq_modules[0].config.chords.transpose = 12;
-    seq_modules[0].config.chords.inversion = 1;
-    uint8_t notes[8];
-    assert(seq_module_chord_notes(&seq_modules[0], 0, notes) == 3);
-    assert(notes[0] == 64 && notes[1] == 67 && notes[2] == 72);
-    mel_track_reset(0);
-    for (uint8_t i = 0; i < MEL_TRACK_MAX_EVENTS - 1; i++)
-        mel_track_add_note(0, i, i, 60, 100);
-    assert(!seq_module_stamp(0, 0));
-    assert(mel_track_event_count(0) == MEL_TRACK_MAX_EVENTS - 1);
-    mel_track_reset(0);
-    virtual_midi_clear_events();
-    key(KC_LALT, true);
-    key(KC_1, true);
-    assert(module_preview.active);
-    assert(events_of(VIRTUAL_MIDI_EVENT_NOTE_ON) == 3);
-    key(KC_1, false);
-    assert(!module_preview.active);
-    assert(events_of(VIRTUAL_MIDI_EVENT_NOTE_OFF) == 3);
-    key(seq_step_key(3), true);
-    key(seq_step_key(3), false);
-    assert(mel_track_event_count(0) == 3);
-    key(KC_LALT, false);
-    assert(!cmd_state.held);
-    /* Playback and audition share a single wire note until both release it. */
-    virtual_midi_clear_events();
-    key(KC_LALT, true);
-    key(KC_1, true);
-    seq_melodic_play_note(0, 64, 100, 0, test_now, true);
-    assert(events_of(VIRTUAL_MIDI_EVENT_NOTE_ON) == 3);
-    key(KC_1, false);
-    assert(events_of(VIRTUAL_MIDI_EVENT_NOTE_OFF) == 2);
-    seq_melodic_release_base(0, 64, test_now);
-    assert(events_of(VIRTUAL_MIDI_EVENT_NOTE_OFF) == 3);
-    key(KC_1, true);
-    assert(module_preview.active);
-    key(SEQ_SWITCH_KEY, true);
-    assert(!module_preview.active && switch_state.held);
-    key(KC_1, false);
-    key(KC_LALT, false);
-    key(SEQ_SWITCH_KEY, false);
-    seq_dirty = true;
-    seq_storage_save_if_dirty();
-    assert(!seq_dirty);
-    seq_modules[0].kind = SEQ_MODULE_EUCLID;
-    seq_storage_load();
-    assert(seq_modules[0].kind == SEQ_MODULE_CHORD_BANK);
-    assert(seq_modules[0].config.chords.transpose == 12);
-    /* A swap silences audition notes but retains sequenced content. */
-    key(KC_LALT, true);
-    key(KC_1, true);
-    assert(module_preview.active);
+    reset(); seq_enter(test_now);
+    seq_module_t module, decoded = {0};
+    uint8_t bytes[SEQ_MODULE_WIRE_MAX]; uint16_t size = sizeof(bytes);
     seq_module_default(&module, SEQ_MODULE_EUCLID);
-    size = sizeof(data);
-    assert(seq_module_encode(&module, data, &size));
-    assert(seq_project_restore_object(13, data, size));
-    assert(!module_preview.active && seq_modules[0].kind == SEQ_MODULE_EUCLID);
-    assert(mel_track_event_count(0) == 3 && seq_drum_step_get(0, 0, 0));
-    uint8_t  old_track[SEQ_TRANSFER_CAPACITY];
-    uint16_t old_size = sizeof(old_track);
-    assert(seq_project_object(1, old_track, &old_size, false, false));
-    assert(seq_project_restore_object(1, old_track, old_size - size)); /* Legacy project without module trailer. */
+    assert(seq_module_encode(&module, bytes, &size));
+    assert(seq_module_decode(&decoded, bytes, size));
+    for (uint16_t i = 0; i < size; i++) assert(!seq_module_decode(&decoded, bytes, i));
+    bytes[2] = SEQ_MODULE_CHORD_BANK;
+    assert(!seq_module_decode(&decoded, bytes, size));
+    seq_module_default(&module, SEQ_MODULE_CHORD_BANK);
+    assert(!seq_module_valid(&module));
+    assert(sizeof(seq_module_t) == 42);
 }
 static void test_live_state(void) {
     reset();
@@ -669,12 +599,7 @@ static void test_live_state(void) {
     seq_transport_stop(test_now);
     seq_slots[3].kind = SEQ_SLOT_KIND_MELODIC;
     seq_slots[3].wraps_drum = true;
-    seq_module_default(&seq_modules[3], SEQ_MODULE_CHORD_BANK);
-    seq_backup_request(11, 0, 0, NULL, 0);
-    assert(backup_data[3] == 2 && backup_data[4] == SEQ_MODULE_CHORD_BANK);
-    assert(backup_data[40 + 48 / 8] & (1u << (48 % 8)));
-    assert((backup_data[18] & 8) && (backup_data[20] & 8) && (backup_data[22] & 8));
-    for (uint8_t i = 24; i < 40; i++) assert(backup_data[i] == 0);
+
 }
 static void test_bounded_save(void) {
     uint8_t data[EECONFIG_USER_DATA_SIZE];
@@ -759,9 +684,7 @@ static void test_visual_state(void) {
     step_edit.is_drum = false;
     assert(seq_visual_mode() == 8);
     step_edit.active = false;
-    seq_module_default(&seq_modules[0], SEQ_MODULE_CHORD_BANK);
     cmd_state.held = true;
-    assert(seq_visual_mode() == 4);
     seq_module_default(&seq_modules[0], SEQ_MODULE_EUCLID);
     assert(seq_visual_mode() == 3);
     cmd_state.held = false;
@@ -986,7 +909,7 @@ static void test_scale_quantizer(void) {
     seq_play_step(test_now+=125);seq_play_step(test_now+=125);assert(melodic_active_contains(0,60)); /* Shared snapped pitch stays until its final owner ends. */
     assert(seq_scale_apply(1,61)==61);
     seq_scale_tracks[1]=(seq_scale_track_t){1,2,0,0};assert(seq_scale_apply(1,60)==59);
-    seq_module_default(&seq_modules[1],SEQ_MODULE_CHORD_BANK);assert(seq_scale_apply(1,60)==60);
+    seq_chord_mode[1]=true;assert(seq_scale_apply(1,60)==60);
     seq_scale_set_global((seq_scale_context_t){1,2,1});assert(!melodic_active_any(0));
     assert(mel_track_event_count(0)==2);
     seq_transport_stop(test_now);assert(!melodic_active_any(0));
@@ -1140,9 +1063,9 @@ static void test_chord_mode(void) {
     seq_backup_request(22,0,0,NULL,0);assert(!backup_status&&backup_data[0]==4&&backup_data[2]==1);
     /* Explicit module installation exits the editor, but keeps authored notes. */
     assert(seq_chord_write(0,0,c,false));
-    seq_module_t bank;seq_module_default(&bank,SEQ_MODULE_CHORD_BANK);size=sizeof(bytes);
+    seq_module_t bank;seq_module_default(&bank,SEQ_MODULE_EUCLID);size=sizeof(bytes);
     assert(seq_module_encode(&bank,bytes,&size));assert(seq_project_restore_object(13,bytes,size));
-    assert(!seq_chord_mode[0] && seq_modules[0].kind==SEQ_MODULE_CHORD_BANK && mel_track_event_count(0)==3);
+    assert(!seq_chord_mode[0] && seq_modules[0].kind==SEQ_MODULE_EUCLID && mel_track_event_count(0)==3);
     /* The shared recipe pool fails atomically across tracks. */
     reset();seq_enter(test_now);c=(seq_chord_event_t){.root=60,.type=0,.length=1,.velocity=100};
     for(uint8_t t=0;t<4;t++){seq_slots[t].kind=SEQ_SLOT_KIND_MELODIC;seq_chord_mode_set(t,true);for(uint8_t i=0;i<16;i++)assert(seq_chord_write(t,i,c,false));}
@@ -1382,7 +1305,7 @@ static void test_live_rhythm_edit(void) {
     seq_backup_request(17, 0, 0, NULL, 0); assert(seq_visual_image[609] == 7);
     seq_transport_stop(test_now);
     /* Both composed pitch sources retain the edited rhythm in project storage. */
-    for (uint8_t kind = 0; kind < 2; kind++) {
+    for (uint8_t kind = 0; kind < 1; kind++) {
         seq_module_t module; seq_module_default(&module, kind);
         module.composed = true; module.rhythm = (seq_rhythm_component_t){.kind=2,.enabled=1,.steps=16,.fills=4,.probability=100};
         seq_module_install(0, &module);
@@ -1395,6 +1318,214 @@ static void test_live_rhythm_edit(void) {
         seq_module_export(0, &module); assert(seq_module_rhythm(&module).fills == 7);
     }
 }
+static void print_euclid_gesture(void) {
+    key(KC_LCTL, true); key(KC_LALT, true); key(KC_LALT, false); key(KC_LCTL, false);
+}
+
+static void test_euclid_print(void) {
+    for (uint8_t mode = 0; mode < 2; mode++) for (uint8_t composed = 0; composed < 2; composed++) {
+        reset(); seq_enter(test_now); seq_slots[0].kind = SEQ_SLOT_KIND_MELODIC;
+        seq_euclid_mode_enter(test_now);
+        track_length_steps[0] = 32;
+        seq_modules[0].composed = composed; seq_modules[0].rhythm.kind = 2;
+        seq_euclid_track_t *e = &euclid_tracks[0];
+        e->steps = 7; e->fills = 3; e->rotate = 2; e->pitch_mode = mode;
+        e->note_count = 3; e->palette_root = 0; e->note_pool[0] = 0; e->note_pool[1] = 4; e->note_pool[2] = 7;
+        e->palette_pin = 255; e->swing_amount = 11; e->probability = 100;
+        seq_accumulators[0].enabled = false;
+        seq_scale_tracks[0].mode = 1; seq_scale_tracks[0].root = 0; seq_scale_tracks[0].kind = 1;
+        assert(mel_track_add_note(0, 0, 9, 61, 80));
+        assert(mel_track_add_note(0, 0, 9, 64, 90));
+        assert(mel_track_add_note(1, 1, 1, 70, 100));
+        uint8_t expected[32][16] = {{0}}, velocities[32][128] = {{0}};
+        for (uint16_t step = 0; step < 32; step++) {
+            seq_projected_step_notes(0, step % e->steps, expected[step]);
+            virtual_midi_clear_events();
+            seq_transport_start(test_now, step % e->steps);
+            for (uint16_t i = 0; i < virtual_midi_state()->event_count; i++) {
+                const virtual_midi_event_t *event = &virtual_midi_state()->events[i];
+                if (event->kind == VIRTUAL_MIDI_EVENT_NOTE_ON && event->channel == midi_channel_for_track(0)) velocities[step][event->note] = event->velocity;
+            }
+            seq_transport_stop(test_now);
+        }
+        seq_transport_start(test_now, 5); uint32_t position = seq_step_position;
+        e->probability = 0; seq_accumulators[0].enabled = true;
+        print_euclid_gesture();
+        assert(!e->enabled && !euclid_mode_active && !euclid_edit.active && !seq_accumulators[0].enabled);
+        assert(seq_state.running && seq_step_position == position && mel_track_event_count(1) == 1);
+        assert(e->note_count == 3 && e->palette_root == 0 && e->steps == 7 && e->fills == 3 && e->probability == 0);
+        uint16_t total = 0;
+        for (uint16_t step = 0; step < 32; step++) {
+            uint8_t actual[16] = {0}; seq_projected_step_notes(0, step, actual);
+            assert(!memcmp(actual, expected[step], sizeof(actual)));
+            for (uint8_t i = 0; i < mel_track_event_count(0); i++) {
+                mel_event_snapshot_t event; assert(mel_track_event_at(0, i, &event));
+                if (event.start_step != step) continue;
+                assert(event.end_step == step); total++;
+                assert(event.velocity * melodic_track_velocity[0] / 127u == velocities[step][event.pitch]);
+            }
+        }
+        assert(total == mel_track_event_count(0) && total > 0);
+        seq_transport_stop(test_now); seq_dirty = true; seq_storage_save_if_dirty(); assert(!seq_dirty);
+        uint8_t count = mel_track_event_count(0); mel_track_reset(0); seq_storage_load();
+        assert(mel_track_event_count(0) == count && !euclid_tracks[0].enabled);
+        /* Printed gaps accept ordinary manual notes. */
+        assert(mel_track_add_note(0, 31, 31, 80, 100));
+    }
+}
+
+static void test_euclid_print_capacity_and_gestures(void) {
+    reset(); seq_enter(test_now); seq_slots[0].kind = SEQ_SLOT_KIND_MELODIC; seq_euclid_mode_enter(test_now);
+    track_length_steps[0] = 256; euclid_tracks[0].steps = 16; euclid_tracks[0].fills = 16;
+    euclid_tracks[0].palette_pin = 0;
+    assert(mel_track_add_note(0, 0, 0, 72, 90));
+    seq_dirty = false; print_euclid_gesture();
+    assert(euclid_mode_active && euclid_tracks[0].enabled && mel_track_event_count(0) == 1 && !seq_dirty && drum_pool_full_preview);
+    mel_event_snapshot_t event; assert(mel_track_event_at(0, 0, &event) && event.pitch == 72);
+    track_length_steps[0] = 128; print_euclid_gesture();
+    assert(mel_track_event_count(0) == 128 && !euclid_tracks[0].enabled && !euclid_mode_active);
+    seq_euclid_mode_enter(test_now); euclid_tracks[0].fills = 0;
+    print_euclid_gesture(); assert(!mel_track_event_count(0) && !euclid_tracks[0].enabled);
+    seq_euclid_mode_enter(test_now); record_state.armed = true;
+    print_euclid_gesture(); assert(euclid_mode_active && euclid_tracks[0].enabled);
+    record_state.armed = false;
+    key(KC_LCTL, true); key(KC_LALT, true); key(KC_LSFT, true); key(KC_R, true); key(KC_R, false);
+    key(KC_LSFT, false); key(KC_LALT, false); key(KC_LCTL, false);
+    assert(euclid_mode_active && euclid_tracks[0].enabled && euclid_tracks[0].palette_root == 5);
+    key(KC_LCTL, true); key(KC_LALT, true); key(KC_W, true); key(KC_W, false); key(KC_LALT, false); key(KC_LCTL, false);
+    assert(euclid_mode_active && euclid_tracks[0].enabled);
+    key(KC_LALT, true); key(KC_LALT, false); assert(!euclid_mode_active && euclid_tracks[0].enabled);
+    /* Drum printing retains its drum type and leaves the edit session. */
+    view_slot = 1; seq_euclid_mode_enter(test_now); print_euclid_gesture();
+    assert(!euclid_mode_active && !slot_is_melodic(1) && !seq_euclid_selected(1, false)->enabled);
+}
+
+static void test_print_lengths(void) {
+    const uint16_t lengths[] = {5, 16, 19, 32};
+    const uint16_t cycles[] = {16, 16, 7, 8};
+    for (uint8_t c = 0; c < 4; c++) {
+        reset(); seq_enter(test_now); seq_slots[0].kind = SEQ_SLOT_KIND_MELODIC;
+        seq_euclid_mode_enter(test_now); track_length_steps[0] = lengths[c];
+        seq_euclid_track_t *e = &euclid_tracks[0];
+        e->steps = cycles[c]; e->fills = cycles[c]; e->note_count = 1; e->palette_root = 0; e->note_pool[0] = 0;
+        e->palette_pin = 0;
+        assert(mel_track_add_note(0, 1, 1, 77, 90));
+        print_euclid_gesture();
+        assert(!euclid_mode_active && mel_track_event_count(0) == lengths[c]);
+        for (uint8_t i = 0; i < mel_track_event_count(0); i++) {
+            mel_event_snapshot_t event; assert(mel_track_event_at(0, i, &event));
+            assert(event.start_step == i && event.end_step == i);
+            assert(event.pitch == (i % cycles[c] == 1 ? 77 : seq_melodic_note_pitch(0, 0)));
+        }
+    }
+}
+
+static void test_drum_print(void) {
+    const uint16_t lengths[] = {5, 19, SEQ_MAX_STEPS};
+    for (uint8_t c = 0; c < 3; c++) {
+        reset(); seq_enter(test_now); seq_euclid_mode_enter(test_now);
+        track_length_steps[0] = lengths[c];
+        seq_euclid_track_t *e = seq_euclid_selected(0, true);
+        e->steps = 8; e->fills = 3; e->rotate = 1; e->probability = 0;
+        assert(seq_drum_step_set(0, 0, 2, true));
+        seq_drum_step_mod_t *mod = seq_drum_step_mod_ensure(0, 0, 2); assert(mod);
+        mod->config = 9;
+        drum_active_note[0] = 1; seq_euclid_enable(0, true);
+        seq_euclid_track_t sibling_state = *seq_euclid_selected(0, false);
+        assert(seq_drum_step_set(0, 1, 3, true));
+        drum_active_note[0] = 0;
+        uint8_t expected[SEQ_DRUM_STORAGE_BYTES] = {0};
+        for (uint16_t step = 0; step < lengths[c]; step++) if (seq_drum_step_get(0, 0, step)) expected[step >> 3] |= 1u << (step & 7);
+        seq_state.running = true; seq_step_position = 3;
+        ratchet_events[0] = (seq_ratchet_event_t){.active=true,.channel=0,.note=0};
+        ratchet_events[1] = (seq_ratchet_event_t){.active=true,.channel=0,.note=1};
+        drum_note_gate_mask[0] = 3;
+        print_euclid_gesture();
+        assert(!euclid_mode_active && !e->enabled && seq_state.running && seq_step_position == 3);
+        assert(!ratchet_events[0].active && ratchet_events[1].active && drum_note_gate_mask[0] == 2);
+        seq_drum_lane_storage_t *lane = seq_drum_pool_lane(0, 0);
+        assert(!memcmp(lane->data, expected, sizeof(expected)) && seq_drum_step_mod_lookup(0, 0, 2)->config == 9);
+        assert(!memcmp(seq_drum_euclid_state(0, 1), &sibling_state, sizeof(sibling_state)) && seq_drum_pool_step_get(0, 1, 3));
+        assert(seq_drum_step_set(0, 0, 2, false) && !seq_drum_step_get(0, 0, 2));
+        seq_state.running = false; seq_dirty = true; seq_storage_save_if_dirty(); assert(!seq_dirty);
+        seq_drum_pool_clear_track(0); seq_storage_load();
+        assert(!seq_drum_euclid_state(0, 0)->enabled && !seq_drum_step_get(0, 0, 2));
+    }
+    /* Printing an inherited generator must freeze its routed hits before making an override. */
+    reset(); seq_enter(test_now); euclid_mode_active = true;
+    euclid_tracks[0].enabled = true; euclid_tracks[0].steps = 16; euclid_tracks[0].fills = 8;
+    euclid_tracks[0].note_count = 2; euclid_tracks[0].note_pool[0] = 0; euclid_tracks[0].note_pool[1] = 1;
+    euclid_tracks[0].palette_pin = 255;
+    uint16_t expected = seq_drum_window_mask(0, 0, 0);
+    print_euclid_gesture();
+    assert(!euclid_mode_active && !seq_drum_euclid_state(0, 0)->enabled && seq_drum_euclid_state(0, 1)->enabled);
+    assert(seq_drum_window_mask(0, 0, 0) == expected);
+    /* A full lane pool cannot partially commit a previously unallocated lane. */
+    reset(); seq_enter(test_now); euclid_mode_active = true;
+    euclid_tracks[0].enabled = true; euclid_tracks[0].steps = 16; euclid_tracks[0].fills = 4;
+    for (uint8_t t = 1; t <= 4; t++) for (uint8_t n = 0; n < 12; n++) assert(seq_drum_pool_step_set(t, n, 0, true));
+    seq_dirty = false; print_euclid_gesture();
+    assert(euclid_mode_active && euclid_tracks[0].enabled && !seq_drum_pool_lane(0, 0) && !seq_dirty && drum_pool_full_preview);
+}
+
+static void test_palette_remove(void) {
+    reset(); seq_enter(test_now); seq_slots[0].kind = SEQ_SLOT_KIND_MELODIC;
+    seq_euclid_mode_enter(test_now); euclid_tracks[0].fills = 16;
+    seq_euclid_track_t *e = &euclid_tracks[0];
+    e->palette_root = 5; e->note_count = 3;
+    e->note_pool[0] = 0; e->note_pool[1] = -5; e->note_pool[2] = 2; e->palette_pin = 2;
+    assert(mel_track_add_note(0, 1, 1, 73, 100));
+    seq_transport_start(test_now, 0); assert(melodic_active_any(0));
+    key(KC_LALT, true); key(KC_DEL, true);
+    key(KC_1, true); key(KC_1, false);
+    assert(e->note_count == 2 && e->note_pool[0] == -5 && e->note_pool[1] == 2 && e->note_pool[2] == 0);
+    assert(e->palette_root == 5 && e->palette_pin == 1 && e->palette_authored && !melodic_active_any(0));
+    assert(seq_state.running && e->fills == 16 && mel_track_event_count(0) == 1 && euclid_tracks[1].note_count == 1);
+    key(KC_8, true); key(KC_8, false); assert(e->note_count == 2);
+    record_state.armed = true;
+    key(KC_1, true); key(KC_1, false); assert(e->note_count == 2);
+    record_state.armed = false;
+    key(KC_DEL, false); key(KC_LALT, false); assert(euclid_mode_active);
+    uint8_t remove[12] = {3, 1, 2, 5, (uint8_t)-5, 2};
+    seq_backup_request(18, 1, 0, remove, sizeof(remove)); assert(backup_status == 2);
+    seq_backup_request(18, 0, 0, remove, 2); assert(backup_status == 3);
+    remove[4] = 0; seq_backup_request(18, 0, 0, remove, sizeof(remove)); assert(backup_status == 2);
+    remove[4] = (uint8_t)-5;
+    seq_backup_request(18, 0, 0, remove, sizeof(remove));
+    assert(!backup_status && e->note_count == 1 && e->palette_pin == 255 && e->note_pool[0] == -5);
+    seq_backup_request(18, 0, 0, remove, sizeof(remove)); assert(backup_status == 2);
+    seq_transport_stop(test_now);
+    seq_dirty = true; seq_storage_save_if_dirty(); assert(!seq_dirty);
+    e->note_pool[0] = 0; seq_storage_load(); assert(e->note_pool[0] == -5 && e->palette_root == 5);
+    seq_euclid_mode_enter(test_now);
+    key(KC_LALT, true); key(KC_DEL, true); key(KC_1, true); key(KC_1, false);
+    key(KC_LALT, false); key(KC_DEL, false);
+    assert(!e->note_count && e->palette_pin == 255 && euclid_mode_active);
+    seq_euclid_enable(0, false); seq_euclid_enable(0, true); assert(!e->note_count);
+    seq_backup_request(17, 0, 0, NULL, 0);
+    assert((seq_visual_image[958] & 8) && seq_visual_image[959] == 5);
+}
+
+static void test_euclid_single_tap_exit(void) {
+    reset(); seq_enter(test_now);
+    key(KC_LALT, true); key(KC_LALT, false); assert(!euclid_mode_active);
+    test_now += 50;
+    key(KC_LALT, true); key(KC_LALT, false); assert(euclid_mode_active);
+    key(KC_LALT, true); key(KC_W, true); key(KC_W, false); key(KC_LALT, false);
+    assert(euclid_mode_active);
+    key(KC_LALT, true); assert(seq_euclid_apply_encoder(1, test_now)); key(KC_LALT, false);
+    assert(euclid_mode_active);
+    key(KC_LALT, true); key(KC_LALT, false);
+    assert(!euclid_mode_active && !euclid_edit.active && !cmd_state.tap_count);
+    key(KC_LALT, true); key(KC_LALT, false); assert(!euclid_mode_active);
+    key(KC_LALT, true); key(KC_LALT, false); assert(euclid_mode_active);
+    /* Existing deliberate generator reset still requires Delete + double tap. */
+    key(KC_DEL, true);
+    key(KC_LALT, true); key(KC_LALT, false); assert(euclid_mode_active);
+    key(KC_LALT, true); key(KC_LALT, false); assert(!euclid_mode_active);
+    key(KC_DEL, false);
+}
+
 static void test_palette_clear(void) {
     reset(); seq_enter(test_now); seq_slots[0].kind = SEQ_SLOT_KIND_MELODIC;
     seq_euclid_mode_enter(test_now); seq_euclid_enable(0, true);
@@ -1467,7 +1598,7 @@ static void test_palette_replace_shortcut(void) {
     seq_euclid_mode_enter(test_now);
     assert(!euclid_tracks[0].palette_authored && !seq_palette_replace[0]);
     seq_backup_request(17, 0, 0, NULL, 0);
-    assert(seq_visual_image[958] == 7);
+    assert((seq_visual_image[958] & 15) == 15);
     /* Merely holding the shortcut must not consume the starter distinction. */
     key(KC_LALT, true); key(KC_LSFT, true);
     key(KC_LSFT, false); key(KC_LALT, false);
@@ -1494,7 +1625,7 @@ static void test_palette_replace_shortcut(void) {
         key(KC_Q, true); key(KC_Q, false);
         assert(key(i ? KC_RCTL : KC_LCTL, false));assert(!seq_ctrl_mask);
         seq_backup_request(17, 0, 0, NULL, 0);
-        assert(seq_visual_image[956] == 3 && seq_visual_image[957] == 0 && seq_visual_image[958] == 5);
+        assert(seq_visual_image[956] == 3 && seq_visual_image[957] == 0 && (seq_visual_image[958] & 15) == 13);
         key(KC_LSFT, false); key(KC_LALT, false);
         assert(euclid_tracks[0].palette_authored && euclid_tracks[0].palette_root == 0);
         assert(euclid_tracks[0].note_count == 1 && euclid_tracks[0].palette_pin == 255 && !seq_palette_replace[0]);
@@ -1680,14 +1811,6 @@ static void test_live_rhythm(void) {
     seq_backup_request(16, 0, 0, NULL, 0);
     assert(!(seq_visual_image[608] & 2));
     assert(seq_visual_image[640 + 60 / 8] & (1u << (60 % 8)));
-    seq_module_t m;
-    seq_module_default(&m, SEQ_MODULE_CHORD_BANK);
-    m.composed = true;
-    m.rhythm = (seq_rhythm_component_t){.kind=2,.enabled=true,.steps=16,.fills=16,.probability=100};
-    seq_module_install(0, &m);
-    seq_backup_request(16, 0, 0, NULL, 0);
-    uint8_t chord[8], voices = seq_module_chord_notes(&m, m.config.chords.selected, chord);
-    for (uint8_t i = 0; i < voices; i++) assert(seq_visual_image[640 + chord[i] / 8] & (1u << (chord[i] % 8)));
     view_bar = 1;
     seq_backup_request(16, 0, 0, NULL, 0);
     for (uint16_t i = 640; i < SEQ_RHYTHM_SIZE; i++) assert(!seq_visual_image[i]);
@@ -1697,7 +1820,7 @@ static void test_components(void) {
     seq_enter(test_now);
     seq_module_t module, decoded, sentinel;
     uint8_t      wire[SEQ_MODULE_WIRE_MAX], again[SEQ_MODULE_WIRE_MAX];
-    for (uint8_t source = 0; source < 2; source++)
+    for (uint8_t source = 0; source < 1; source++)
         for (uint8_t rhythm = 1; rhythm <= 2; rhythm++) {
             seq_module_default(&module, source);
             module.composed = true;
@@ -1722,57 +1845,8 @@ static void test_components(void) {
             size2 = sizeof(again);
             assert(seq_module_encode(&decoded, again, &size2) && size2 == size && !memcmp(wire, again, size));
         }
-    /* Independent rhythm component and source component, no source-note writes. */
-    seq_slots[0].kind       = SEQ_SLOT_KIND_MELODIC;
-    seq_slots[0].wraps_drum = false;
-    mel_track_reset(0);
-    assert(mel_track_add_note(0, 5, 7, 72, 100));
-    seq_transport_start(test_now, 0);
-    assert(melodic_active_contains(0, 48));
-    assert(seq_slot_playback_mask(0, 0) == 0x1111);
-    for (uint8_t step = 1; step < 16; step++) {
-        virtual_midi_clear_events();
-        seq_play_step(test_now += 125);
-        assert(events_of(VIRTUAL_MIDI_EVENT_NOTE_ON) == (step % 4 == 0 ? 3 : 0));
-        assert(melodic_active_any(0) == (step % 4 == 0));
-    }
-    assert(mel_track_event_count(0) == 1);
-    seq_modules[0].config.chords.selected = 1;
-    seq_play_step(test_now += 125);
-    assert(melodic_active_contains(0, 49));
-    seq_modules[0].rhythm.probability = 0;
-    for (uint8_t i = 0; i < 5; i++) {
-        virtual_midi_clear_events();
-        seq_play_step(test_now += 125);
-        assert(!events_of(VIRTUAL_MIDI_EVENT_NOTE_ON) && !melodic_active_any(0));
-    }
-    seq_modules[0].rhythm.enabled = 0;
-    assert(seq_composed_chord_hit(0, 5) && !seq_composed_chord_hit(0, 4));
-    seq_backup_request(11, 0, 0, NULL, 0);
-    assert((backup_data[1] & 192) == 192);
-    seq_modules[0].rhythm = (seq_rhythm_component_t){.kind = 1};
-    seq_transport_start(test_now, 0);
-    for (uint8_t step = 1; step <= 8; step++) {
-        virtual_midi_clear_events();
-        seq_play_step(test_now += 125);
-        assert(events_of(VIRTUAL_MIDI_EVENT_NOTE_ON) == (step == 5 ? 3 : 0));
-    }
-    seq_transport_stop(test_now);
-    assert(!melodic_active_any(0));
-    seq_storage_save_if_dirty();
-    seq_module_default(&seq_modules[0], 0);
-    seq_storage_load();
-    assert(seq_modules[0].composed && seq_modules[0].rhythm.kind == 1 && mel_track_event_count(0) == 1);
-    /* Removing the composition restores the original sustained source phrase. */
-    seq_module_default(&module, SEQ_MODULE_CHORD_BANK);
-    seq_module_install(0, &module);
-    seq_transport_start(test_now, 0);
-    for (uint8_t i = 1; i <= 6; i++)
-        seq_play_step(test_now += 125);
-    assert(melodic_active_contains(0, 72));
-    seq_transport_stop(test_now);
     seq_backup_request(15, 0, 0, NULL, 0);
-    assert(!backup_status && backup_size == 16 && backup_data[1] == 3);
+    assert(!backup_status && backup_size == 14 && backup_data[1] == 3);
     seq_backup_request(15, 1, 0, NULL, 0);
     assert(backup_status == 3);
 }
@@ -1905,12 +1979,155 @@ static void run_protocol_bridge(void) {
             virtual_midi_receive_sysex(offset, count - offset > 3 ? 3 : count - offset, packet + offset);
     }
 }
+static void test_temp_restore(void) {
+    reset(); seq_enter(test_now);
+    seq_slots[1].kind = SEQ_SLOT_KIND_MELODIC;
+    seq_chord_mode_set(1, true);
+    seq_chord_event_t chord = {.root=60,.type=0,.length=4,.velocity=100};
+    assert(seq_chord_write(1, 0, chord, false));
+    seq_drum_step_set(0, 0, 0, true);
+    seq_drum_step_set(0, 2, 7, true);
+    seq_automation_record(1, 0, 4, 90);
+    cc_automation_manual[1] = true;
+    melodic_last_mask[1] = 5;
+    seq_scale_global = (seq_scale_context_t){1,2,1};
+    seq_dirty = false; seq_save_status = 0;
+    uint8_t before[13][SEQ_TRANSFER_CAPACITY]; uint16_t sizes[13];
+    for (uint8_t i=0;i<13;i++) { sizes[i]=sizeof(before[i]); assert(seq_project_object(i,before[i],&sizes[i],false,false)); }
+    seq_transport_start(test_now, 0);
+    key(KC_ENT,true); key(KC_ESC,true); key(KC_ESC,false); key(KC_ENT,false);
+    assert(seq_temp_active);
+    seq_backup_request(17,0,0,NULL,0);assert((seq_visual_image[958]&112)==48);
+    uint8_t saved[SEQ_TRANSFER_CAPACITY]; memcpy(saved,seq_transfer_buffer,sizeof(saved));
+    seq_clear_track(1,test_now); seq_clear_track(0,test_now);
+    drum_lane_muted[0][0]=true; melodic_track_muted[1]=true;
+    seq_drum_step_set(4,8,12,true); bpm=170; seq_timing_swing=35;
+    track_length_steps[0]=7; seq_scale_global.root=9; cc_values[1][0]=3;
+    cc_automation_manual[1]=false; melodic_last_mask[1]=16;
+    assert(seq_temp_active && !memcmp(saved,seq_transfer_buffer,sizeof(saved)));
+    for (uint8_t cmd=1;cmd<=9;cmd++) { seq_backup_request(cmd,0,0,NULL,0); assert(backup_status==2); }
+    assert(!memcmp(saved,seq_transfer_buffer,sizeof(saved)) && !seq_transfer_active);
+    seq_state.running=false; seq_dirty=true; seq_storage_save_if_dirty();
+    assert(!test_eeprom_valid && !memcmp(saved,seq_transfer_buffer,sizeof(saved)));
+    seq_state.running=true;
+    seq_play_step(test_now+=125); uint32_t position=seq_step_position;
+    seq_scale_editing=true; euclid_mode_active=true;
+    key(KC_ESC,true); key(KC_ESC,false);
+    assert(!seq_temp_active && seq_state.running && seq_step_position==position);
+    assert(!seq_scale_editing && !euclid_mode_active && !seq_dirty && seq_save_status==0);
+    assert(melodic_last_mask[1]==5 && !melodic_track_muted[1] && !drum_lane_muted[0][0]);
+    assert(seq_chord_mode[1] && seq_chord_count(1)==1 && mel_track_event_count(1)==3);
+    for (uint8_t i=0;i<13;i++) {
+        uint8_t after[SEQ_TRANSFER_CAPACITY]; uint16_t size=sizeof(after);
+        assert(seq_project_object(i,after,&size,false,false));
+        assert(size==sizes[i] && !memcmp(after,before[i],size));
+    }
+    assert(seq_track_step_position[0]==position%16);
+    seq_play_step(test_now+=125);assert(melodic_active_any(1));
+    seq_transport_stop(test_now);
+}
+static void test_temp_commit(void) {
+    reset(); seq_enter(test_now);
+    seq_drum_step_set(0, 0, 0, true);
+    seq_transport_start(test_now, 0);
+    key(KC_ENT, true); key(KC_ESC, true); key(KC_ESC, false); key(KC_ENT, false);
+    assert(seq_temp_active);
+    seq_drum_step_set(0, 0, 4, true);
+    drum_lane_muted[0][0] = true;
+    bpm = 150;
+    seq_slots[1].kind = SEQ_SLOT_KIND_MELODIC;
+    assert(mel_track_add_note(1, 0, 7, 60, 100));
+    assert(mel_track_add_note(1, 0, 7, 64, 100));
+    seq_play_step(test_now += 125);
+    uint32_t position = seq_step_position, deadline = seq_next_step_ms;
+    virtual_midi_clear_events();
+    key(KC_ENT, true); key(KC_ESC, true);
+    assert(!seq_temp_active && !seq_temp_length && seq_dirty);
+    assert(seq_state.running && seq_step_position == position && seq_next_step_ms == deadline);
+    assert(!virtual_midi_state()->event_count && !test_eeprom_valid);
+    /* Repeated key-down and the key-up must not create a new snapshot. */
+    key(KC_ESC, true); key(KC_ESC, false); key(KC_ENT, false);
+    assert(!seq_temp_active && seq_drum_step_get(0, 0, 4) && drum_lane_muted[0][0]);
+    assert(bpm == 150 && mel_track_event_count(1) == 2);
+    /* The next TEMP uses the committed state as its new restore point. */
+    key(KC_ENT, true); key(KC_ESC, true); key(KC_ESC, false); key(KC_ENT, false);
+    assert(seq_temp_active);
+    seq_clear_track(1, test_now); bpm = 90; drum_lane_muted[0][0] = false;
+    key(KC_ESC, true); key(KC_ESC, false);
+    assert(!seq_temp_active && bpm == 150 && drum_lane_muted[0][0] && mel_track_event_count(1) == 2);
+    seq_transport_stop(test_now);
+    seq_storage_save_if_dirty();
+    assert(test_eeprom_valid && !seq_dirty);
+}
+static void queue_temp_restore(void) {
+    key(KC_LSFT, true); key(KC_ESC, true); key(KC_ESC, false); key(KC_LSFT, false);
+}
+static void test_temp_quantized_controls(void) {
+    reset(); seq_enter(test_now);
+    assert(seq_temp_begin(test_now)); bpm = 150;
+    queue_temp_restore(); /* No clock running: restore immediately. */
+    assert(!seq_temp_active && !seq_temp_restore_pending && bpm == 120);
+    seq_transport_start(test_now, 0);
+    assert(seq_temp_begin(test_now)); bpm = 150;
+    queue_temp_restore(); assert(seq_temp_active && seq_temp_restore_pending);
+    seq_backup_request(17,0,0,NULL,0);assert((seq_visual_image[958]&112)==112);
+    key(KC_LSFT, true); key(KC_ESC, true);
+    assert(seq_temp_active && !seq_temp_restore_pending && bpm == 150);
+    key(KC_ESC, true); /* Held-key repeats must not requeue. */
+    assert(!seq_temp_restore_pending);
+    key(KC_ESC, false); key(KC_LSFT, false);
+    queue_temp_restore(); assert(seq_temp_active && seq_temp_restore_pending);
+    key(KC_ESC, true); key(KC_ESC, false);
+    assert(!seq_temp_active && !seq_temp_restore_pending && bpm == 120);
+    assert(seq_temp_begin(test_now)); bpm = 160;
+    queue_temp_restore();
+    key(KC_ENT, true); key(KC_ESC, true); key(KC_ESC, false); key(KC_ENT, false);
+    assert(!seq_temp_active && !seq_temp_restore_pending && bpm == 160);
+    for (uint8_t i = 0; i < 16; i++) seq_play_step(test_now += 125);
+    assert(bpm == 160);
+    assert(seq_temp_begin(test_now)); bpm = 180; queue_temp_restore();
+    seq_transport_stop(test_now);
+    assert(!seq_temp_active && !seq_temp_restore_pending && bpm == 160 && !seq_state.running);
+}
+static void test_temp_pool_restore(void) {
+    reset();seq_enter(test_now);
+    for(uint8_t t=0;t<4;t++)for(uint8_t n=0;n<12;n++)seq_drum_step_set(t,n,0,true);
+    assert(seq_drum_pool_used()==48 && seq_temp_begin(test_now));
+    for(uint8_t t=0;t<4;t++)seq_clear_track(t,test_now);
+    for(uint8_t t=4;t<8;t++)for(uint8_t n=0;n<12;n++)seq_drum_step_set(t,n,1,true);
+    assert(seq_drum_pool_used()==48 && seq_temp_restore(test_now));
+    for(uint8_t t=0;t<4;t++)for(uint8_t n=0;n<12;n++)assert(seq_drum_step_get(t,n,0));
+    for(uint8_t t=4;t<8;t++)for(uint8_t n=0;n<12;n++)assert(!seq_drum_step_get(t,n,1));
+}
+static void test_temp_capacity(void) {
+    reset(); seq_enter(test_now);
+    for (uint8_t t=0;t<12;t++) {
+        seq_slots[t].kind=SEQ_SLOT_KIND_MELODIC;
+        for (uint8_t i=0;i<MEL_TRACK_MAX_EVENTS;i++) assert(mel_track_add_note(t,i,i,60,100));
+    }
+    assert(!seq_temp_begin(test_now) && !seq_temp_active);
+    for (uint8_t t=0;t<12;t++) assert(mel_track_event_count(t)==MEL_TRACK_MAX_EVENTS);
+    reset();seq_enter(test_now);
+    seq_transfer_active=true;seq_transfer_buffer[0]=99;
+    assert(!seq_temp_begin(test_now) && seq_transfer_buffer[0]==99);
+    seq_transfer_active=false;
+    assert(seq_temp_begin(test_now));
+    seq_drum_step_set(0,0,1,true);
+    seq_exit();
+    assert(!seq_temp_active && !seq_state.active && !seq_drum_step_get(0,0,1));
+}
+
 int main(int argc, char **argv) {
     if (argc > 1 && !strcmp(argv[1], "--bridge")) {
         run_protocol_bridge();
         return 0;
     }
 
+    test_temp_restore();
+    test_temp_commit();
+    test_temp_quantized_controls();
+    test_temp_capacity();
+    test_temp_pool_restore();
     test_lane_euclid_gestures();
     test_lane_euclid();
     test_lane_euclid_legacy_capacity();
@@ -1950,6 +2167,12 @@ int main(int argc, char **argv) {
     test_scale_editor_storage();
     test_ordered_euclid_controls();
     test_live_rhythm_edit();
+    test_print_lengths();
+    test_drum_print();
+    test_euclid_print();
+    test_euclid_print_capacity_and_gestures();
+    test_palette_remove();
+    test_euclid_single_tap_exit();
     test_palette_clear();
     test_palette_replace_shortcut();
     test_palette_provenance_storage();
@@ -1957,5 +2180,5 @@ int main(int argc, char **argv) {
     test_euclid_picked_notes();
     test_transport_restart();
     test_bounded_save();
-    puts("seq_engine: 46 regression groups passed");
+    puts("seq_engine: 57 regression groups passed");
 }

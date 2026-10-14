@@ -3,6 +3,9 @@
 // Double-tap window for PgUp/Esc to toggle sequencer mode (in ms)
 #define SEQ_DOUBLE_TAP_MS 300
 
+// Fresh firmware/settings: light pressed keys, then fade them out.
+#define RGB_MATRIX_DEFAULT_MODE RGB_MATRIX_SOLID_REACTIVE_SIMPLE
+
 // If your board uses RGB Matrix, you can optionally cap brightness for clarity
 // #define RGB_MATRIX_MAXIMUM_BRIGHTNESS 180
 
@@ -34,3 +37,8 @@
 #define WEAR_LEVELING_BACKING_SIZE 8192
 #undef WEAR_LEVELING_LOGICAL_SIZE
 #define WEAR_LEVELING_LOGICAL_SIZE 4096
+
+// Keep the diagnostic history small on hardware; host tests retain full traces.
+#if defined(MIDI_ENABLE) && defined(PROTOCOL_CHIBIOS)
+#    define VIRTUAL_MIDI_MAX_EVENTS 16
+#endif
