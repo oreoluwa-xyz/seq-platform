@@ -1,20 +1,24 @@
+import {renderPerformance} from './performance.mjs?v=e8da829dbf';
+import {renderVariation} from './variation.mjs?v=90308f36a3';
+import {paletteQualityPayload} from './palette-chords.mjs?v=b0a37ac77a';
+import {renderProjectHealth} from './project-health.mjs?v=23482001a9';
 import {renderTrackMute} from './track-status.mjs';
-import {renderTemp} from './temp.mjs';
+import {renderTemp} from './temp.mjs?v=f3aa4a44c5';
 import {setupFirmware,verifyFirmware} from './firmware.mjs?v=cdb10208e0';
-import {decodeProjectScale,sameScale} from './chord-project.mjs?v=6c6f346c5c';
-import {renderChordMode} from './chord-mode.mjs?v=886590c057';
-import {harmonyRequestChanged} from './harmony.mjs?v=a92972a827';
-import {setupHarmony} from './harmony-editor.mjs?v=f9d12cc709';
+import {decodeProjectScale,sameScale} from './chord-project.mjs?v=3aa3001b5b';
+import {renderChordMode} from './chord-mode.mjs?v=e16e3e7465';
+import {harmonyRequestChanged} from './harmony.mjs?v=5bc5306d12';
+import {setupHarmony} from './harmony-editor.mjs?v=28ff63cb9a';
 import {renderCC} from './cc.mjs?v=e2e885f80c';
 import {renderScale,renderScaleModal} from './scale.mjs?v=bcc8228f15';
 import {renderRhythmControls,rhythmEditPayload} from './rhythm-controls.mjs';
-import {renderPalette,paletteRemovePayload} from './palette.mjs?v=d934a0c35a';
-import {renderHardwareOrbit} from './orbit.mjs?v=b14d15f367';
-import {setupManual} from './manual.mjs?v=17e7ffad90';
-import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,noteName,parseNotes,euclidHit} from './module.mjs?v=08f7f2e951';
-import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=6bb2561018';
-import {LiveMonitor} from './live.mjs?v=5709598627';
-import {renderLiveSteps,liveBarLabel} from './steps.mjs?v=0df1ccd105';
+import {renderPalette,paletteRemovePayload} from './palette.mjs?v=831d6385ec';
+import {renderHardwareOrbit} from './orbit.mjs?v=fe48e35c75';
+import {setupManual} from './manual.mjs?v=b26c5caffa';
+import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,noteName,parseNotes,euclidHit} from './module.mjs?v=8c4bcd2da4';
+import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=3103146cad';
+import {LiveMonitor} from './live.mjs?v=b5fe2a212b';
+import {renderLiveSteps,liveBarLabel} from './steps.mjs?v=175bf85458';
 const $=id=>document.getElementById(id), number=i=>String(i+1).padStart(2,'0');
 if(document.querySelector('meta[name="seq-hosting"][content="static"]')) {
   const status=document.querySelector('.workspace-status');
@@ -256,7 +260,7 @@ $('attach').onclick=async()=>{
 function stopLive(){lastHarmonyRequest=null;liveMonitor?.stop();liveMonitor=null;liveState=null;liveReady=false;queuedHardwareState=null;renderLive();$('live-status').textContent='Connect to follow your keyboard';}
 function startLive(device){
   stopLive();$('live-status').textContent='Reading hardware state…';
-  liveMonitor=new LiveMonitor(device,{canPoll:()=>!busy&&!document.hidden,wantVisual:()=>!!window.seqDesktop||manual?.wantsVisual(),onState:state=>{
+  liveMonitor=new LiveMonitor(device,{canPoll:()=>!busy&&!document.hidden,wantHealth:()=>true,wantVisual:()=>!!window.seqDesktop||manual?.wantsVisual(),onState:state=>{
     liveState=state;liveReady=true;
     const openRequested=harmonyRequestChanged(lastHarmonyRequest,state.harmonyRequest);lastHarmonyRequest=state.harmonyRequest;
     if(openRequested)openHarmony();
@@ -285,6 +289,7 @@ function updateTransferControls(){
 }
 function renderLive(){
   renderTemp($('live-temp'),liveState,liveReady);
+  renderProjectHealth($('project-health'),liveState,liveReady);
   document.body.dataset.liveMode=liveReady?(liveState?.visual?.mode||'off'):'unavailable';
   document.querySelectorAll('#tracks .track').forEach((node,i)=>{
     const rgb=liveReady&&liveState?.visual?.leds?.slice((i+1)*3,(i+2)*3);
@@ -313,15 +318,17 @@ function renderLive(){
   $('live-engine').textContent=s.chordMode?.enabled?'Recorded chords':s.composed?`${s.rhythm==='euclid'?'Euclid':'Steps'} → ${s.engine?'Chords':'Notes'}`:s.engine?'Chord bank':'Euclid';
   $('live-tempo-label').textContent=s.external?'CLOCK SOURCE':'TEMPO';
   $('live-tempo').textContent=s.external?'External MIDI':`${s.bpm} BPM`;
-  $('live-position').textContent=`${s.step+1} / ${s.length}`;
+  $('live-position').textContent=`${s.step+1} / ${s.loopSteps?Math.min(s.loopSteps,s.length):s.length}`;
   $('live-bar').textContent=liveBarLabel(s)+(s.editStep!==65535?` · EDIT STEP ${s.editStep+1}`:'');
+  renderVariation($('live-variation'),s,liveReady&&!busy,editVariation);
   renderScale($('live-scale'),s,liveReady&&!busy,editScale,auditionScale);
   renderRhythmControls($('live-euclid-settings'),s,liveReady&&!busy,editLiveRhythm);
   $('live-euclid-settings').hidden=!!s.chordMode?.enabled;
   $('hardware-orbit-caption').textContent=`LIVE KEYBOARD · VIEWED 16 STEPS · ${s.projectedNotes?'Projected notes before probability, mutes and accumulator':'Stored note labels'} · Center: sampled sound`;
-  renderPalette($('live-palette'),s,liveReady&&!busy,mode=>editLivePitch(s.track,0,Uint8Array.of(0,mode==='transpose'?1:0)),replace=>editLivePitch(s.track,0,Uint8Array.of(2,Number(replace))),index=>editLivePitch(s.track,0,paletteRemovePayload(s.palette,index)));
+  renderPalette($('live-palette'),s,liveReady&&!busy,mode=>editLivePitch(s.track,0,Uint8Array.of(0,mode==='chords'?2:mode==='transpose'?1:0)),replace=>editLivePitch(s.track,0,Uint8Array.of(2,Number(replace))),index=>editLivePitch(s.track,0,paletteRemovePayload(s.palette,index)),(index,type)=>editLivePitch(s.track,0,paletteQualityPayload(s.palette,index,type)));
   renderHardwareOrbit($('hardware-orbit'),s,liveReady&&!busy);
   $('live-step-caption').textContent=renderLiveSteps($('live-steps'),s,liveReady&&!busy,step=>editLivePitch(s.track,step,Uint8Array.of(1)));
+  renderPerformance(s);
   for(const [id,notes] of [['live-selected',s.selected],['live-sounding',liveReady?s.sounding:[]]]){
     $(id).replaceChildren(...(notes.length?notes.map(note=>{const el=document.createElement('span');el.textContent=noteName(note);el.title=`MIDI ${note}`;return el;}):[document.createTextNode(liveReady?'—':'Unavailable')]));
   }
@@ -329,6 +336,13 @@ function renderLive(){
     node.classList.toggle('hardware-current',liveReady&&s.track===i);
     if(liveReady){const type=s.chordMode?.mask&(1<<i)?'CHORD':s.wrapperMask&(1<<i)?'HYBRID':s.melodicMask&(1<<i)?'MELODIC':'DRUM';const engine=type==='CHORD'?'STEPS':s.moduleMask&(1<<i)?'CHORD BANK':'EUCLID';node.querySelector('small').textContent=`${type} / ${engine}`;node.setAttribute('aria-label',`Track ${number(i)}, ${type.toLowerCase()}, ${engine.toLowerCase()}`);}
   });
+}
+async function editVariation(track,payload){
+  if(!connection||busy||!liveReady)return false;
+  busy=true;renderLive();
+  try{await liveMonitor.pause();await connection.request(27,track,0,payload);notice(payload[0]===4?'Queued variation cancelled.':payload[2]&&liveState.running?'Variation queued for the next global bar.':'Playback settings applied. Save on board to keep them.');return true;}
+  catch(error){notice(error.status===2?'The keyboard changed or a gesture is active. Refresh the draft and try again.':error.message,true);return false;}
+  finally{busy=false;liveMonitor?.resume();renderLive();}
 }
 async function editScale(track,context,payload){
   if(!connection||busy||!liveReady)return false;
@@ -358,7 +372,7 @@ async function editLiveRhythm(track,context,field,value,expected){
 async function editLivePitch(track,step,payload){
   if(!connection||busy||!liveReady||!liveState?.palette?.editable)return;
   busy=true;renderLive();await liveMonitor.pause();
-  try{await connection.request(18,track,step,payload);notice(payload[0]===3?'Palette note removed. Save on the keyboard to keep it.':payload[0]===2?(payload[1]?'Next capture will replace the palette.':'Next capture will add notes to free slots.'):payload[0]?`Step ${step+1} now uses the palette.`:payload[1]?'Transpose phrase selected.':'Palette notes selected.');}
+  try{await connection.request(18,track,step,payload);notice(payload[0]===4?'Chord quality updated. Save on the keyboard to keep it.':payload[0]===3?'Palette note removed. Save on the keyboard to keep it.':payload[0]===2?(payload[1]?'Next capture will replace the palette.':'Next capture will add notes to free slots.'):payload[0]?`Step ${step+1} now uses the palette.`:payload[1]===2?'Chord palette selected.':payload[1]?'Transpose phrase selected.':'Palette notes selected.');}
   catch(error){notice(error.status===2?'Keyboard changed track or is editing. Finish the edit and try again.':error.status===4?'No room to split this sustained note. Free an event and try again.':error.message,true);}
   finally{busy=false;liveMonitor.resume();renderLive();}
 }

@@ -13,7 +13,7 @@ The module is a composition, not a new engine enum for each combination. This fi
 
 All four pairings are supported. Stored rhythm + track pitches preserves sustained source notes. Euclidean rhythm + track pitches retriggers source spans with one-step gates. A generated hit without a source span uses held or last-picked melodic notes, or the palette root if no notes are picked; palette offsets and pinning apply to all these sources. Disabling Euclid restores recorded timing and rests. Either rhythm + chord-bank pitches uses one-step chord gates. Stored rhythm uses note starts for those chord triggers. Slot length is a stamping duration, not a generated gate length. Ratchet is the existing drum-only setting and must be zero with chord-bank pitches.
 
-The platform owns clocking, transport reset, MIDI channel/velocity scaling, mutes, note deduplication, note-off ownership and resource limits. Components do not send MIDI, allocate memory, own transport timers, or alter stored events. Source pitches remain independent of playback transformations. Stamping is an explicit operation that writes notes; installing a composition preserves existing material. The legacy accumulator remains available in v1 but is bypassed in compositions until represented by an explicit component.
+The platform owns clocking, transport reset, MIDI channel/velocity scaling, mutes, note deduplication, note-off ownership and resource limits. Components do not send MIDI, allocate memory, own transport timers, or alter stored events. Source pitches remain independent of playback transformations. Stamping is an explicit operation that writes notes; installing a composition preserves existing material. The host accumulator operates after note generation for both Euclid and recorded-step compositions, advancing once per onset group.
 
 ## Files and compatibility
 
@@ -49,6 +49,8 @@ First increment delivered: Cmd+/ → This track builds a guide from versioned co
 Remaining: component-driven keyboard-map overlays, current parameter values from verified device readback, and searchable component help alongside the general manual. The written guide still uses `MANUAL.md`; keyboard mappings remain explicitly maintained.
 
 ## Palette pitch contract, version 2
+
+Live capability byte 638 bit 7 advertises the momentary global loop shortcut (Enter + encoder). Live v5 bytes 902–903 contain its u16 step limit, or zero for normal playback. The authored track length at bytes 12–13 is unchanged; effective playback length is the smaller of authored length and the nonzero limit. The overlay is never serialized in project/module/TEMP objects and never trims data. Releasing Enter clears the limit and rejoins each original loop at global transport position modulo its original length. Pending gates/ratchets are released and sustained notes rejoin on the next tick. Older snapshots without the capability ignore bytes 902–903.
 
 `pitch.track@2` adds `pitchMode` (`palette` or `transpose`) to root/pool/pin. Palette mode uses root in the track octave plus the selected pool interval on empty Euclidean hits. Recorded spans override with their exact pitches. Transpose mode preserves `pitch.track@1`: recorded or held/last-picked notes plus the interval. Recorded timing and drum behavior are unaffected. Capture either appends unique notes into free slots or replaces the pool; it does not erase recorded overrides.
 
@@ -182,3 +184,40 @@ Live rhythm metadata byte 609 bit 2 announces lane context. Byte 619 contains th
 Live byte 958 bit 3 advertises individual removal; byte 959 carries the raw palette root. Command 18 accepts a 12-byte payload `[3, slot, expected_count, expected_root, eight_expected_offsets]` at offset 0. Slot is zero-based; offsets are signed bytes. Count, root and occupied offsets must match current state, otherwise status 2 rejects the stale request. Existing track/gesture guards apply. Bad sizes and indices outside 0–7 return status 3. Older firmware rejects the new operation; clients must check the capability.
 
 The keyboard gesture is Euclid modifier + Delete + 1–8, without Shift. Removal compacts the pool, retains its root and remaining offsets, shifts pins after the removed slot and unpins a removed pinned slot. It releases the track's sounding notes, resets accumulator runtime and marks the palette authored/dirty. Recorded events and rhythm stay intact. Removing the last slot uses the existing persisted empty-palette contract.
+
+### Project capacity and save telemetry
+
+Command **25**, object = track 0–11, offset/payload = zero, returns one 42-byte read-only snapshot. It never enters project-transfer mode, stops transport, prunes recipes, writes EEPROM, or uses the shared transfer/TEMP buffer. Count-only serialization measures the same format as save/export; an active melodic edit can make sizes temporarily unavailable. Clients poll at most about once a second and discard stale or malformed readings. Unsupported firmware returns status 1.
+
+| Bytes | Value |
+| --- | --- |
+| 0 | Version 1 |
+| 1 | Flags: dirty=1, TEMP active=2, restore queued=4, transfer active=8, sizes known=16, TEMP entry ready=32, valid on-board save=64 |
+| 2–4 | Last save status (0–3), requested track, its selected drum lane |
+| 5–7 | Used lanes, lane capacity, per-track melodic event capacity |
+| 8–15 | uint16 selected-track notes, total notes, valid chord recipes, recipe capacity |
+| 16–23 | uint16 total CC points, total CC capacity, selected-track CC points, per-track CC capacity |
+| 24–27 | uint16 selected-lane step modifiers and capacity |
+| 28–35 | uint16 on-board encoded size and limit, TEMP encoded size including restore context and limit |
+| 36–41 | uint16 retained TEMP restore-point size, selected-track encoded size, per-object transfer limit |
+
+Integers are little-endian. Sizes and recipe count are unavailable unless flag 16 is set; readiness is sampled and firmware rechecks entry. Save status is the last save/load result, so current unsaved state comes from the dirty flag. An existing save does not imply current RAM edits were saved. During TEMP, displayed project sizes describe current edits; byte 36 describes the original drop.
+
+Command **5** with offset **1** extends the legacy three-byte validation reply to five bytes: lane count, uint16 CC count, chord recipe count, shared recipe capacity. Offset zero retains the old reply. Updated full-project restore tools require the extended reply and sum all three resources before clearing. Older firmware must be updated to use that restore path; backup/export remains compatible.
+
+
+### Chord palette extension
+
+Standalone Euclid wire version 4 extends version 3 with eight quality bytes after pitch mode. Pitch mode is 0 palette notes, 1 transpose phrase, 2 chord palette. Qualities are chord types 0–11 or 16 (10/11 Auto triad/seventh, 16 diminished seventh). Compositions use pitch.track contract 3 with the same pitch-mode byte and eight qualities. Existing contracts retain their formats. Encoders use the extension when chord mode or non-Major qualities need preserving. This adds 8 bytes per track to module state, with no extra stored chord events.
+
+Palette snapshot command 17 uses control version 2 at byte 954. When not capturing, bytes 920–927 contain qualities and byte 928 contains held edit digit 0–8, or 255 for none. Capture snapshots retain their previous meaning for these bytes. Command 18 action 4 accepts 21 bytes: action, slot (0–7 or 8 for all), expected count, expected root, eight expected offsets, eight expected qualities, requested type. Stale roots/qualities and active keyboard edits are rejected. Action 0 accepts pitch mode 2. Catalog command 15 advertises module version 4 and pitch.track contract 3.
+
+## Host playback variation and chord accumulator
+
+The host accumulator now applies one shared semitone offset to each onset group, including recorded-step compositions and chord mode. `seq_variation.inc` renders transformed groups without changing source events. A second source-note buffer is unnecessary. Settings and pending settings consume 296 bytes of static RAM across all twelve tracks. The existing base-to-output map is reused as a group-offset cache only while the grouped renderer owns a track; switching renderers releases the old outputs first. Cache values encode offsets -127..127 as 0..254, with 255 unset. Range bounding moves the entire group, avoiding clipped/deduplicated chord voices.
+
+Live rhythm metadata byte 609 bit 3 advertises commands 26/27. Command 26, object=track, offset=0, no payload, returns 32 bytes: version=1, track, global revision u16 LE, pending flag, current settings (11 bytes), pending-or-current settings (11 bytes), accumulator enabled/random/run-length/backward, melodic flag. A setting is seed u32 LE, order (0 original/1 reverse/2 rotate/3 shuffle/4 random), rotation 0..127, mutation 0..100, range 0..24, voicing (0..3 raised lowest voices/4 random), enabled, locked.
+
+Command 27 uses object=current melodic track and offset=0. Header: action, scope (0 track/1 all melodic), next-bar flag, expected revision u16 LE. Action 0 appends 11 settings bytes; 1 rerolls; 2 sets the scope to the opposite of the selected track's lock state; 3 resets variation; 4 cancels the scope's queue. Action 5 appends accumulator enabled/random/run-length (0/2/4)/backward; it requires immediate application. Payload sizes are exactly 16, 5, or 9 bytes. Invalid/stale/edit-busy requests reject before changing any track. Reads never advance seeds, probability, accumulator, or MIDI lifetimes.
+
+Track projects optionally append `V`, version 1, and the 11 settings bytes after chord recipes and before the module tail. Untouched tracks omit it; old projects decode with no variation. Older firmware cannot load a project containing this extension. Standalone module files omit these host track settings. The chord workshop preserves the extension when editing/adopting recipes. TEMP stores the active transform through this codec and preserves pending configurations in its existing shared scratch context. Queues apply before note emission at global 16-step boundaries, including catch-up and external clock advancement; stopping transport also applies them. Source chords retain their interval shapes through root mutation, including already-rendered Auto chords.

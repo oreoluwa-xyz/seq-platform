@@ -1,8 +1,8 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><title>Scale chord fixture</title><link rel="stylesheet" href="style.css"><body><main style="padding:24px"><p id="result">Checking…</p><section id="live"></section><section id="workshop"></section></main><script>addEventListener("error",e=>{document.querySelector("#result").textContent="FAIL: "+e.message;document.title="FAIL · Scale chord fixture"});</script><script type="module">
-import {setupChordWorkshop} from './chord-workshop.mjs';
-import {recipeProgression,decodeChordProject,encodeChordProject} from './chord-project.mjs';
-import {encodeChordTrack} from './harmony.mjs';
-import {renderChordMode} from './chord-mode.mjs';
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Scale chord fixture</title><link rel="stylesheet" href="style.css?v=53f3924284"><body><main style="padding:24px"><p id="result">Checking…</p><section id="live"></section><section id="workshop"></section></main><script>addEventListener("error",e=>{document.querySelector("#result").textContent="FAIL: "+e.message;document.title="FAIL · Scale chord fixture"});</script><script type="module">
+import {setupChordWorkshop} from './chord-workshop.mjs?v=6a064cc645';
+import {recipeProgression,decodeChordProject,encodeChordProject} from './chord-project.mjs?v=3aa3001b5b';
+import {encodeChordTrack} from './harmony.mjs?v=5bc5306d12';
+import {renderChordMode} from './chord-mode.mjs?v=e16e3e7465';
 const scale={enabled:true,root:5,kind:5},recipe={root:67,type:10,start:0,length:4,velocity:100,scaleRoot:5,scaleKind:5,inversion:0};
 const raw=encodeChordTrack(recipeProgression([recipe],16),0,{editable:true}),source=decodeChordProject(raw,{allowUnowned:true});
 source.draft=recipe;const bytes=encodeChordProject(source,[recipe]);

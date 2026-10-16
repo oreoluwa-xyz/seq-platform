@@ -1,11 +1,11 @@
-import {chordLabel} from './chord-mode.mjs?v=886590c057';
-import {noteName} from './module.mjs?v=08f7f2e951';
+import {chordLabel} from './chord-mode.mjs?v=e16e3e7465';
+import {noteName} from './module.mjs?v=8c4bcd2da4';
 
 // The live protocol reports a viewed bar, not the full Euclidean configuration.
 export function liveOrbitSteps(state,ready){
   const melodic=state.type!==0&&!state.child;
   return Array.from({length:16},(_,i)=>{
-    const step=state.bar*16+i,outside=step>=state.length;
+    const step=state.bar*16+i,outside=step>=(state.loopSteps?Math.min(state.loopSteps,state.length):state.length);
     return {step,outside,hit:!outside&&!!(state.pattern&(1<<i)),playhead:ready&&state.active&&state.running&&state.step===step,
       notes:melodic&&!outside?(state.projectedNotes??state.stepNotes)?.[i]??null:null};
   });

@@ -1,4 +1,6 @@
-import {decodeChordMode} from './chord-mode.mjs?v=886590c057';
+import {decodeVariation} from './variation.mjs?v=90308f36a3';
+import {decodeProjectHealth} from './project-health.mjs?v=23482001a9';
+import {decodeChordMode} from './chord-mode.mjs?v=e16e3e7465';
 import {scaleNames} from './scale.mjs?v=bcc8228f15';
 const notes = bytes => Array.from({length:128}, (_,n)=>n).filter(n=>bytes[n>>3] & (1<<(n&7)));
 export function decodeLive(bytes) {
@@ -29,12 +31,15 @@ export function decodeRhythm(bytes){
   if(bytes[622]===1){scale={enabled:!!bytes[623],root:bytes[624],kind:bytes[625],mode:bytes[626],localRoot:bytes[627],localKind:bytes[628],direction:bytes[629],editing:!!bytes[630],pending:{enabled:!!bytes[631],root:bytes[632],kind:bytes[633]},revision:word(634),count:bytes[636]||7};
     if(scale.count>scaleNames.length||scale.count<7||bytes[623]>1||scale.root>11||scale.kind>=scale.count||scale.mode>2||scale.localRoot>11||scale.localKind>=scale.count||scale.direction>2||bytes[630]>1||bytes[631]>1||scale.pending.root>11||scale.pending.kind>=scale.count)throw Error('Invalid scale state.');
   }
-  return {...decodeDetailed(detail),chordScaleBoundSupported:!!(bytes[638]&64),chordCustomSupported:!!(bytes[638]&32),chordInversionSupported:!!(bytes[638]&16),globalTempoSupported:!!(bytes[638]&8),chordSupported:!!(bytes[638]&4),harmonySupported:!!(bytes[638]&1),harmonyRequest:bytes[638]&2?bytes[639]:null,scale,euclid:rhythm,projectedNotes:flags&16?Array.from({length:16},(_,i)=>notes(bytes.slice(640+i*16,656+i*16))):null};
+  return {...decodeDetailed(detail),variationSupported:!!(bytes[609]&8),chordScaleBoundSupported:!!(bytes[638]&64),chordCustomSupported:!!(bytes[638]&32),chordInversionSupported:!!(bytes[638]&16),globalTempoSupported:!!(bytes[638]&8),chordSupported:!!(bytes[638]&4),harmonySupported:!!(bytes[638]&1),harmonyRequest:bytes[638]&2?bytes[639]:null,scale,euclid:rhythm,projectedNotes:flags&16?Array.from({length:16},(_,i)=>notes(bytes.slice(640+i*16,656+i*16))):null};
 }
 export function decodePalette(bytes){
   if(bytes.length!==960||bytes[0]!==5)throw Error('Incompatible palette snapshot.');
   const rhythm=bytes.slice(0,896);rhythm[0]=4;
   const state=decodeRhythm(rhythm),flags=bytes[896],count=bytes[897],pin=bytes[898],pending=bytes[900];
+  state.globalLoopSupported=!!(bytes[638]&128);
+  state.loopSteps=state.globalLoopSupported?bytes[902]|bytes[903]<<8:0;
+  if(state.loopSteps>2048)throw Error('Invalid global loop length.');
   if(count>8||pending>8||(pin!==255&&pin>=count))throw Error('Invalid palette size or pin.');
   const signed=n=>n>127?n-256:n;
   const entries=(start,notes,count)=>Array.from({length:count},(_,i)=>({offset:signed(bytes[start+i]),note:bytes[notes+i]}));
@@ -43,8 +48,11 @@ export function decodePalette(bytes){
   const saved=entries(904,912,count),capture=entries(920,928,pending);
   if([...saved,...capture].some(e=>e.note>127))throw Error('Invalid palette pitch.');
   if(bytes[957]>pending)throw Error('Invalid retained palette size.');
-  if(bytes[954]>1||(bytes[954]===1&&bytes[955]>1))throw Error('Invalid palette controls.');
-  return {...state,muteSupported:!!(bytes[958]&128),temp:bytes[958]&16?{active:!!(bytes[958]&32),queued:!!(bytes[958]&64)}:null,palette:flags&1?{removeSupported:!!(bytes[958]&8),root:bytes[959],clearShortcut:!!(bytes[958]&4),replaceShortcut:!!(bytes[958]&1),starter:!!(bytes[958]&1)&&!!(bytes[958]&2),captureEditable:!!(bytes[956]&1),replace:bytes[956]&1?!!(bytes[956]&2):true,full:!!(bytes[956]&4),retained:bytes[957],editable:bytes[954]===1,mode:bytes[954]===1&&!bytes[955]?'palette':'transpose',overrides:bytes[952]|bytes[953]<<8,held:!!(flags&2),shift:!!(flags&4),capturing:!!(flags&8),latched:!!(flags&16),pin:pin===255?null:pin,saved,capture,slots}:null,paletteSupported:true};
+  if(bytes[954]>2||(bytes[954]===1&&bytes[955]>1)||(bytes[954]===2&&bytes[955]>2))throw Error('Invalid palette controls.');
+  const chordSupported=bytes[954]===2,qualities=chordSupported&&!(flags&8)?Array.from(bytes.slice(920,928)):null;
+  const editDigit=chordSupported&&!(flags&8)&&bytes[928]!==255?bytes[928]:null;
+  if(qualities?.some(v=>v>11&&v!==16)||editDigit!==null&&editDigit>8)throw Error('Invalid chord palette state.');
+  return {...state,muteSupported:!!(bytes[958]&128),temp:bytes[958]&16?{active:!!(bytes[958]&32),queued:!!(bytes[958]&64)}:null,palette:flags&1?{chordSupported,qualities,editDigit,removeSupported:!!(bytes[958]&8),root:bytes[959],clearShortcut:!!(bytes[958]&4),replaceShortcut:!!(bytes[958]&1),starter:!!(bytes[958]&1)&&!!(bytes[958]&2),captureEditable:!!(bytes[956]&1),replace:bytes[956]&1?!!(bytes[956]&2):true,full:!!(bytes[956]&4),retained:bytes[957],editable:bytes[954]>=1,mode:bytes[954]>=1?['palette','transpose','chords'][bytes[955]]:'transpose',overrides:bytes[952]|bytes[953]<<8,held:!!(flags&2),shift:!!(flags&4),capturing:!!(flags&8),latched:!!(flags&16),pin:pin===255?null:pin,saved,capture,slots}:null,paletteSupported:true};
 }
 export function decodeMuteSummary(bytes){
   if(bytes[5]!==1)return null;
@@ -59,15 +67,31 @@ export function decodeCC(bytes){
   return {active:!!(flags&1),latched:!!(flags&2),temporary:!!(flags&4),running:!!(flags&8),trackOverride:!!(flags&16),automationSupported:bytes[160]===1,automationShiftPgDn:bytes[160]===1&&!!(bytes[162]&1),manual:bytes[160]===1&&bytes[161]===1,track:bytes[2],selected:bytes[3]===255?null:bytes[3],slots};
 }
 export class LiveMonitor {
-  constructor(connection,{onState,onStatus,canPoll=()=>true,wantVisual=()=>false}) {
+  constructor(connection,{onState,onStatus,canPoll=()=>true,wantVisual=()=>false,wantHealth=()=>false}) {
+    this.wantHealth=wantHealth;this.healthSupported=null;this.health=null;this.healthAt=0;this.healthTrack=null;
     this.connection=connection;this.onState=onState;this.onStatus=onStatus;this.canPoll=canPoll;this.wantVisual=wantVisual;this.visualSupported=null;this.detailSupported=null;this.rhythmSupported=null;this.paletteSupported=null;this.stopped=true;this.wanted=null;this.flight=null;
   }
   start(){this.stopped=false;this.tick();}
   stop(){this.stopped=true;clearTimeout(this.timer);this.wanted=null;}
   async pause(){this.paused=true;await this.flight;}
-  resume(){this.paused=false;}
+  resume(){this.paused=false;this.health=null;this.healthAt=0;this.healthTrack=null;}
   select(track){if(!Number.isInteger(track)||track<0||track>=12)throw Error('Invalid track.');this.wanted=track;}
   async readState(track){
+    const state=await this.readHardwareState(track);
+    if(!state||!this.wantHealth()||this.stopped||this.paused||!this.canPoll())return state;
+    const now=Date.now();
+    if(this.healthSupported!==false&&(!this.healthAt||now-this.healthAt>=1000||this.healthTrack!==state.track)){
+      this.healthAt=now;this.healthTrack=state.track;
+      try{
+        const health=decodeProjectHealth(await this.connection.request(25,state.track));
+        if(health.track!==state.track)throw Error('Capacity track changed.');
+        this.health=health;this.healthSupported=true;
+      }catch(error){this.health=null;if(error.status===1)this.healthSupported=false;}
+    }
+    if(this.stopped||this.paused||!this.canPoll())return null;
+    return {...state,health:this.health,healthSupported:this.healthSupported};
+  }
+  async readHardwareState(track){
     let selected=null;
     if(track!==null)selected=decodeLive(await this.connection.request(12,track));
     if(this.paletteSupported!==false&&!this.stopped&&!this.paused){
@@ -85,6 +109,7 @@ export class LiveMonitor {
         if(this.stopped||this.paused||!this.canPoll())return null;
         this.paletteSupported=true;
         const state=decodePalette(bytes);
+        if(state.variationSupported){state.variation=decodeVariation(await this.connection.request(26,state.track));if(this.stopped||this.paused||!this.canPoll())return null;}
         if(state.chordSupported){
           const head=await this.connection.request(22),total=head[0]>=3?448:192,chordBytes=new Uint8Array(total);
           if(head.length!==64||![1,2,3,4].includes(head[0])||!head[62]||head[63]!==1)throw Error('Invalid chord header.');

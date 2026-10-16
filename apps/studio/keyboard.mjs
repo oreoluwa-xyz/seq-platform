@@ -1,7 +1,8 @@
-import {chordLabel} from './chord-mode.mjs?v=886590c057';
+import {paletteTypes,paletteTypeKeys,paletteTypeNames} from './palette-chords.mjs?v=b0a37ac77a';
+import {chordLabel} from './chord-mode.mjs?v=e16e3e7465';
 import {scaleNames,rootKeys,rootNames,modeKeys,scaleNotes} from './scale.mjs';
 import {keyboardLayout} from './keyboard-layout.mjs?v=e35f4ea181';
-import {noteName} from './module.mjs?v=08f7f2e951';
+import {noteName} from './module.mjs?v=8c4bcd2da4';
 
 export const modes = [
   ['chord-step','Chords','Build a progression.','Ctrl + Tab + track selects Chord mode. Note keys choose root; I / O / P / [ / ] select Length / Root / Velocity / Inversion / Type for the knob. Tap a step to place/select, hold to edit. With a scale enabled, Type cycles scale-derived variations. Shift + ] frees or rebinds only the selected chord. Del + step deletes.'],
@@ -21,7 +22,7 @@ const grid='1 2 3 4 Q W E R A S D F Z X C V'.split(' ');
 const notes='Q 2 W 3 E R 5 T 6 Y 7 U'.split(' ');
 const pitches=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 const slots='1 2 3 4 5 6 7 8 9 0 - ='.split(' ');
-export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit=false){
+export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit=false,palette=null){
   const map={};const put=(key,label,group,detail)=>map[key]={label,group,detail};
   if(mode!=='off')for(const key of ['LCtrl','RCtrl'])put(key,'Tempo','modifier','Hold Ctrl and turn the knob for global tempo; add Shift for 5 BPM. External MIDI clock keeps tempo in the DAW.');
   if(mode==='off'){put('PgUp','Enter seq','transport','Double-tap PgUp to enter the sequencer.');return map;}
@@ -29,6 +30,7 @@ export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit
   if(mode==='scale'){rootKeys.forEach((key,i)=>put(key,rootNames[i],'note',`Choose ${rootNames[i]} as the global root.`));modeKeys.forEach((key,i)=>put(key,scaleNames[i],'parameter',`Choose ${scaleNames[i]}.`));put('Enter','Apply','transport','Apply the pending global key and scale.');put('Esc','Cancel','transport','Discard pending changes.');put('0','Scale on/off','modifier','Toggle global scale constraint.');return map;}
   const alt=os==='mac'?['Mod1']:['Mod2','Mod3'],gui=os==='mac'?['Mod2','Mod3']:['Mod1'];
   const modifier=(keys,label,detail)=>keys.forEach(k=>put(k,label,'modifier',detail));
+  if(!['off','scale','navigation','confirmation'].includes(mode))put('Enter','Global loop','transport','Hold Enter and turn the knob to limit all track loops by one step per detent. Release Enter to restore original lengths without losing notes or automation. Shorter tracks keep their own length. Finish held edits and disarm recording first. Enter + Esc still captures or keeps TEMP.');
   put('Esc','Back / exit','transport','Hold Enter + tap Esc to capture TEMP (Esc turns purple). During TEMP, Enter + Esc keeps the edits and exits TEMP; Esc alone restores all tracks immediately. Shift + Esc queues restoration at the next global 16-step bar (blinking purple Esc). Press Shift + Esc again to cancel the queue and stay in TEMP (solid purple); while stopped it restores immediately. Neither restarts playback. Keeping edits does not immediately save to flash. Otherwise tap to leave an edit mode; double-tap exits the sequencer.');
   put('PgUp','Seq on/off','transport','Double-tap to enter or exit the sequencer.');
   put('PgDn','Arm record','transport','Double-tap to arm or disarm recording. Armed notes are captured while transport runs.');
@@ -114,6 +116,17 @@ export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit
     for(const [key,control] of Object.entries(map))if(!['Knob','Esc',...(mode==='melodic-edit'?['I','O','P']:[])].includes(key))control.detail='Release the held step before using this control. '+control.detail;
     put('Knob',mode==='drum-edit'?'Velocity':'Step edit','parameter',mode==='drum-edit'?'Adjust Normal, Accent (+20) or Ghost (−40). Release the step to finish.':'Starts on Length. Keep the step held and tap I Length, O Pitch (in the active scale), or P Velocity, then turn. Release to finish.');
   }
+  if(mode==='euclid'&&palette?.chordSupported){
+    put('C','Chord palette','modifier','Hold the Euclid button and tap C to toggle chord palette.');
+    if(palette.mode==='chords'){
+      for(let i=0;i<8;i++)put(String(i+1),`Chord ${i+1}`,'note','Tap to pin this slot. Hold and turn the knob to change its chord quality.');
+      put('0','All / cycle','note','Tap to resume cycling; hold and turn the knob to set all chord qualities.');
+      if(palette.editDigit!==null&&palette.editDigit!==undefined){
+        paletteTypes.forEach((type,i)=>put(paletteTypeKeys[i],paletteTypeNames[type],'parameter','Choose this chord quality for the held palette slot.'));
+        put('Knob','Chord type','parameter','Cycle chord qualities for the held slot. Release the slot to finish.');
+      }
+    }
+  }
   return map;
 }
 // Semantic marks are separate from sampled LED colors; note marks indicate pitch class.
@@ -144,7 +157,7 @@ export function setupKeyboard(){
   const buttons=new Map();
   const labelFor=id=>({LShift:'Shift',RShift:'Shift',RCtrl:'Ctrl',Mod1:root.querySelector('#keyboard-os').value==='mac'?'Option':'Win',Mod2:root.querySelector('#keyboard-os').value==='mac'?'Cmd':'Alt',Mod3:root.querySelector('#keyboard-os').value==='mac'?'Cmd':'Alt'})[id]||id;
   function inspect(id){
-    selected=id;const control=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held())[id];
+    selected=id;const control=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:null)[id];
     for(const [key,button] of buttons){button.setAttribute('aria-pressed',String(key===id));button.tabIndex=key===id?0:-1;}
     detail.replaceChildren();const cap=document.createElement('span');cap.className='detail-key';cap.textContent=labelFor(id);const text=document.createElement('div'),title=document.createElement('strong'),description=document.createElement('p');
     title.textContent=control?.label||'No mode-specific control';description.textContent=control?.detail||'This key has no dedicated control in this view. Other held-key combinations may still apply.';
@@ -162,7 +175,7 @@ export function setupKeyboard(){
     };buttons.set(key.id,button);board.append(button);
   }
   function render(){
-    const config=modes.find(m=>m[0]===mode),map=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held());
+    const config=modes.find(m=>m[0]===mode),map=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:null);
     root.querySelector('.keyboard-mode-title').textContent=config[2];root.querySelector('.keyboard-mode-help').textContent=held()?(mode==='drum-edit'?'Hold the step and turn the knob for Velocity. Release to finish.':'Hold the step and turn the knob for Length. Tap I Length, O Pitch or P Velocity while held. Release to finish.'):config[3];
     root.querySelector('.keyboard-grid-option').hidden=mode!=='drum';
     root.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));
@@ -175,7 +188,7 @@ export function setupKeyboard(){
     const following=follow.checked&&!!hardware,live=following&&ready;
     root.classList.toggle('keyboard-following',live);root.classList.toggle('keyboard-stale',following&&!ready);
     const marks=keyboardMarks(live?hardware:null,mode,root.querySelector('#keyboard-grid').checked);
-    const currentControls=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held());
+    const currentControls=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:null);
     for(const [id,button] of buttons){
       const mark=marks[id];
       for(const state of ['current','hit','playhead','selected','sounding','running','armed'])button.classList.toggle(`key-${state}`,!!mark[state]);
@@ -191,16 +204,16 @@ export function setupKeyboard(){
     }
     const status=!follow.checked?'Reference · choose a mode':!hardware?'Connect to see live state':!ready?'Live updates paused or unavailable':hardware.visual?(hardware.visual.leds?'Live · firmware LED colors':'Live · modes; LED data unavailable'):'Basic live · firmware update needed for modes / LEDs';
     const statusNode=root.querySelector('#keyboard-live-status');if(statusNode.textContent!==status)statusNode.textContent=status;
-    root.querySelector('#keyboard-live-position').textContent=live?`TRACK ${String(hardware.track+1).padStart(2,'0')} · ${!hardware.active?'SEQ OFF':hardware.running?'RUNNING':'STOPPED'}${hardware.armed?' · REC ARMED':''} · ${hardware.step+1}/${hardware.length}${hardware.visual?.holdEdit?` · HOLD EDIT${hardware.type!==0?' · '+hardware.selected.map(noteName).join(' / '):' · VELOCITY'}`:''}`:'';
+    root.querySelector('#keyboard-live-position').textContent=live?`TRACK ${String(hardware.track+1).padStart(2,'0')} · ${!hardware.active?'SEQ OFF':hardware.running?'RUNNING':'STOPPED'}${hardware.armed?' · REC ARMED':''} · ${hardware.step+1}/${hardware.loopSteps?Math.min(hardware.loopSteps,hardware.length):hardware.length}${hardware.visual?.holdEdit?` · HOLD EDIT${hardware.type!==0?' · '+hardware.selected.map(noteName).join(' / '):' · VELOCITY'}`:''}`:'';
     root.querySelector('#keyboard-os').disabled=live&&!!hardware.visual?.os;root.querySelector('#keyboard-grid').disabled=live&&!!hardware.visual;
     inspect(selected);
   }
   function updateLive(state,isReady){
-    const previousHold=hardware?.visual?.holdEdit;
+    const previousHold=hardware?.visual?.holdEdit,previousPalette=JSON.stringify([hardware?.palette?.mode,hardware?.palette?.editDigit]);
     hardware=state;ready=isReady;
     if(follow.checked&&hardware&&ready){
       const nextMode=hardware.visual?.mode||(!hardware.active?'off':hardware.editStep!==65535?(hardware.type===0||hardware.child?'drum-edit':'melodic-edit'):hardware.type===0||hardware.child?'drum':'melodic');
-      let changed=mode!==nextMode||previousHold!==hardware.visual?.holdEdit;mode=nextMode;
+      let changed=mode!==nextMode||previousHold!==hardware.visual?.holdEdit||previousPalette!==JSON.stringify([hardware.palette?.mode,hardware.palette?.editDigit]);mode=nextMode;
       if(hardware.visual){
         const os=root.querySelector('#keyboard-os'),layout=root.querySelector('#keyboard-grid');
         changed||=layout.checked!==hardware.visual.grid||!!hardware.visual.os&&os.value!==hardware.visual.os;

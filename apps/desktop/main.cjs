@@ -100,6 +100,10 @@ async function createWindow() {
 }
 async function smokeTest() {
     const check = (condition, message) => { if (!condition) throw Error(message); };
+    const capture = async target => {
+        await target.webContents.executeJavaScript("Promise.all(document.getAnimations().filter(a=>Number.isFinite(a.effect.getComputedTiming().iterations)).map(a=>a.finished.catch(()=>{}))).then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))");
+        return target.webContents.capturePage();
+    };
     if (app.isPackaged) {
         const firmware = await status(service.origin);
         check(firmware.toolAvailable && !firmware.discoveryError, 'Bundled DFU tool runs');
@@ -125,22 +129,146 @@ async function smokeTest() {
     const midi = await window.webContents.executeJavaScript("navigator.requestMIDIAccess({sysex:true}).then(a=>({sysex:a.sysexEnabled,inputs:[...a.inputs.values()].map(p=>p.name),outputs:[...a.outputs.values()].map(p=>p.name)}))", true);
     check(midi.sysex, 'MIDI SysEx permission');
     await window.webContents.executeJavaScript('window.seqDesktop.setCompact(true)');
+    check(await window.webContents.executeJavaScript("document.querySelector('#desktop-pin').textContent==='Pinned' && document.querySelector('#desktop-compact').textContent==='Workshop ↗'"),'Desktop toolbar initializes before live MIDI state');
     await window.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'smoke-preview.js'), 'utf8'));
     check(await window.webContents.executeJavaScript("document.querySelector('#live-temp').dataset.temp === 'queued' && document.querySelector('#live-temp').textContent.includes('Shift + Esc')"), 'TEMP queue status and controls in compact view');
     check(await window.webContents.executeJavaScript("document.querySelectorAll('#tracks .track').length === 12 && getComputedStyle(document.querySelector('.sidebar')).display !== 'none' && !!document.querySelector('#hardware-orbit svg')"), 'Track rail and circular rhythm remain visible');
     window.setSize(520, 720);
     await new Promise(resolve => setTimeout(resolve, 150));
     check(await window.webContents.executeJavaScript('document.documentElement.scrollWidth <= innerWidth'), 'No horizontal overflow at the minimum width');
-    window.setSize(1080, 270);
+    window.setSize(1440, 270);
     await new Promise(resolve => setTimeout(resolve, 150));
     check(await window.webContents.executeJavaScript("document.querySelector('#hardware-orbit').getBoundingClientRect().bottom <= innerHeight"), 'Circular rhythm fits the default strip height');
     check(await window.webContents.executeJavaScript(`(()=>{
         const steps=document.querySelector('#live-steps').getBoundingClientRect();
-        const panel=document.querySelector('.hardware-rhythm>div:nth-child(2)').getBoundingClientRect();
         const orbit=document.querySelector('#hardware-orbit').getBoundingClientRect();
-        return steps.width >= panel.width-2 && Math.abs(panel.bottom-orbit.bottom)<3 && panel.bottom <= innerHeight;
-    })()`), 'Step grid fills its panel and aligns with radial');
-    fs.writeFileSync(path.join(app.getPath('userData'), 'performance.png'), (await window.webContents.capturePage()).toPNG());
+        const rhythm=document.querySelector('#live-euclid-settings').getBoundingClientRect();
+        const tabs=document.querySelector('#performance-tabs').getBoundingClientRect();
+        return steps.left>=orbit.right && steps.top>=rhythm.bottom && rhythm.top>=tabs.bottom && steps.width>500 && steps.bottom<=innerHeight && getComputedStyle(document.querySelector('#live-palette')).display==='none';
+    })()`), 'Rhythm controls and sequence have separate regions with palette available in its tab');
+    fs.writeFileSync(path.join(app.getPath('userData'), 'performance.png'), (await capture(window)).toPNG());
+    await window.webContents.executeJavaScript("document.querySelector('[data-pane=palette]').click()");
+    check(await window.webContents.executeJavaScript("[...document.querySelectorAll('#live-palette .palette-slot')].every(n=>n.getBoundingClientRect().bottom<=innerHeight)"),'All saved palette notes fit the default performance window');
+    fs.writeFileSync(path.join(app.getPath('userData'),'performance-palette-default.png'),(await capture(window)).toPNG());
+    check(await window.webContents.executeJavaScript(`(async()=>{
+        const {renderPalette}=await import('/ui/palette.mjs'),{renderLiveSteps}=await import('/ui/steps.mjs');
+        const root=document.querySelector('#live-palette'),steps=document.querySelector('#live-steps'),state=window.performanceFixtureState;
+        const render=()=>{renderPalette(root,state,true,()=>{},()=>{},()=>{},()=>{});renderLiveSteps(steps,state,true);};
+        const button=root.querySelector('[data-palette-select="0"]');button.focus();button.click();
+        if(steps.querySelectorAll('.palette-match').length!==2||root.querySelector('[data-palette-select="0"]').getAttribute('aria-pressed')!=='true')return false;
+        const mounted=root.querySelector('[data-palette-select="0"]');
+        state.step=5;render();
+        if(root.querySelector('[data-palette-select="0"]')!==mounted)return false;
+        if(!steps.children[5].matches('.palette-match.playhead')||!document.activeElement.matches('[data-palette-select="0"]'))return false;
+        if(steps.children[2].hasAttribute('data-palette-slot'))return false;
+        state.palette.pin=3;render();
+        if(steps.querySelectorAll('.palette-match').length!==1||!steps.children[8].matches('.palette-match'))return false;
+        state.palette.pin=null;state.track=1;render();
+        if(steps.querySelector('.palette-match'))return false;
+        state.track=0;render();root.querySelector('[data-palette-select="0"]').click();
+        return document.querySelector('#palette-selection-status').textContent.includes('2 hits');
+    })()`),'Palette inspection links the correct hits, preserves focus/playhead on polls and clears on track changes');
+    fs.writeFileSync(path.join(app.getPath('userData'),'performance-palette-linked.png'),(await capture(window)).toPNG());
+
+    check(await window.webContents.executeJavaScript(`(()=>{
+        const palette=document.querySelector('#live-palette'),preview=document.querySelector('.hardware-rhythm>div:nth-child(2)'),steps=document.querySelector('#live-steps');
+        const before=steps.getBoundingClientRect();palette.scrollTop=palette.scrollHeight;
+        const after=steps.getBoundingClientRect(),r=palette.getBoundingClientRect();
+        palette.scrollTop=0;
+        return getComputedStyle(preview).display!=='none'&&before.width>350&&before.right<=r.left&&after.top===before.top&&after.bottom<=innerHeight&&r.bottom<=innerHeight;
+    })()`),'Palette scrolls independently beside the visible Euclidean hits in the short wide strip');
+
+    window.setSize(1440,270);await new Promise(resolve=>setTimeout(resolve,100));
+    for(const pane of ['palette','variation','scale']){
+        await window.webContents.executeJavaScript(`document.querySelector('[data-pane="${pane}"]').click()`);
+        check(await window.webContents.executeJavaScript(`(()=>{
+            const panel=document.querySelector('#live-${pane}'),tabs=document.querySelector('#performance-tabs').getBoundingClientRect(),r=panel.getBoundingClientRect();
+            return getComputedStyle(panel).display!=='none' && r.top>=tabs.bottom && r.left>=0 && r.right<=innerWidth && document.documentElement.scrollWidth<=innerWidth && getComputedStyle(document.querySelector('#live-euclid-settings')).display==='none';
+        })()`), `${pane} editor has its own scrollable region in the short window`);
+        fs.writeFileSync(path.join(app.getPath('userData'),`performance-${pane}.png`),(await capture(window)).toPNG());
+    }
+    await window.webContents.executeJavaScript(`(async()=>{
+        document.querySelector('[data-pane="palette"]').click();
+        const {renderPalette}=await import('/ui/palette.mjs');
+        const state=window.performanceFixtureState;state.palette.mode='chords';state.palette.qualities=[0,1,8,7,6,0,0,0];
+        renderPalette(document.querySelector('#live-palette'),state,true,()=>{},()=>{},()=>{},()=>{});
+    })()`);
+    check(await window.webContents.executeJavaScript("document.querySelectorAll('.palette-quality-row button').length===13 && document.querySelector('#live-palette').getBoundingClientRect().top>=document.querySelector('#performance-tabs').getBoundingClientRect().bottom"), 'Chord palette remains contained');
+    window.setSize(1440,270);await new Promise(resolve=>setTimeout(resolve,100));
+    fs.writeFileSync(path.join(app.getPath('userData'),'performance-chord-palette.png'),(await capture(window)).toPNG());
+    check(await window.webContents.executeJavaScript("getComputedStyle(document.querySelector('.hardware-rhythm>div:nth-child(2)')).display!=='none' && document.querySelector('#live-palette').scrollHeight>document.querySelector('#live-palette').clientHeight"),'Chord quality editing retains the rhythm beside its scrollable palette');
+    check(await window.webContents.executeJavaScript(`(()=>{
+        const root=document.querySelector('#live-palette'),steps=document.querySelector('#live-steps'),before=steps.getBoundingClientRect().top;
+        root.querySelectorAll('.palette-edit-chord')[2].click();
+        const title=root.querySelector('.palette-quality-title').getBoundingClientRect();
+        return root.scrollTop>0&&title.top>=root.getBoundingClientRect().top-1&&title.bottom<=innerHeight&&steps.getBoundingClientRect().top===before;
+    })()`),'Editing a chord reveals its qualities without moving the visible rhythm');
+    fs.writeFileSync(path.join(app.getPath('userData'),'performance-chord-quality.png'),(await capture(window)).toPNG());
+    check(await window.webContents.executeJavaScript(`(async()=>{
+        const {renderPalette}=await import('/ui/palette.mjs');
+        const root=document.querySelector('#live-palette'),state=window.performanceFixtureState;
+        root.querySelector('[data-palette-select="3"]').click();
+        if(!root.querySelector('.palette-quality-title').textContent.startsWith('Palette 4')||!document.querySelector('#live-steps').children[8].matches('.palette-match'))return false;
+        [...root.querySelectorAll('button')].find(b=>b.textContent==='Edit all slots').click();
+        if(document.querySelectorAll('#live-steps .palette-match').length!==4)return false;
+        state.palette.editDigit=5;renderPalette(root,state,true,()=>{},()=>{},()=>{},()=>{});
+        if(!root.querySelector('[data-palette-select="4"]').matches('[aria-pressed="true"]'))return false;
+        state.palette.editDigit=null;renderPalette(root,state,true,()=>{},()=>{},()=>{},()=>{});
+        return root.querySelector('.palette-quality-title').textContent.startsWith('Palette 5');
+    })()`),'Chord selection, all-slot editing and hardware chord keys share the hit highlight');
+    await window.webContents.executeJavaScript("document.querySelector('#live-palette').scrollTop=0");
+    window.setSize(520,720);await new Promise(resolve=>setTimeout(resolve,100));
+    check(await window.webContents.executeJavaScript('document.documentElement.scrollWidth<=innerWidth'),'Full chord palette fits narrow window');
+    fs.writeFileSync(path.join(app.getPath('userData'),'performance-palette-narrow.png'),(await capture(window)).toPNG());
+    await window.webContents.executeJavaScript("document.querySelector('[data-pane=variation]').click();document.querySelector('[data-mutation]').focus();document.querySelector('[data-mutation]').value='35';document.querySelector('[data-mutation]').dispatchEvent(new Event('input'))");
+    await window.webContents.executeJavaScript("Promise.all([import('/ui/variation.mjs'),import('/ui/performance.mjs')]).then(([v,p])=>{v.renderVariation(document.querySelector('#live-variation'),window.performanceFixtureState,true,()=>{});p.renderPerformance(window.performanceFixtureState);})");
+    check(await window.webContents.executeJavaScript("document.activeElement.matches('[data-mutation]') && document.querySelector('[data-mutation]').value==='35' && document.body.dataset.performancePane==='variation'"),'Polling preserves variation focus and selected pane');
+    check(await window.webContents.executeJavaScript(`(async()=>{
+        const {renderPerformance}=await import('/ui/performance.mjs');
+        const state=window.performanceFixtureState,content=document.querySelector('#live-content');
+        content.scrollTop=content.scrollHeight;
+        const tabs=document.querySelector('#performance-tabs').getBoundingClientRect(),rail=document.querySelector('#tracks').getBoundingClientRect();
+        if(tabs.top<rail.bottom||tabs.bottom>innerHeight)return false;
+        document.querySelector('[data-pane=rhythm]').click();
+        state.palette.held=true;state.palette.shift=true;renderPerformance(state);
+        if(document.body.dataset.performancePane!=='palette')return false;
+        document.querySelector('[data-pane=rhythm]').click();renderPerformance(state);
+        if(document.body.dataset.performancePane!=='rhythm')return false;
+        state.palette.capturing=true;renderPerformance(state);
+        if(document.body.dataset.performancePane!=='palette'||content.scrollTop!==0)return false;
+        state.palette.capturing=false;state.palette.held=false;state.palette.shift=false;renderPerformance(state);
+        document.querySelector('[data-pane=rhythm]').click();state.palette.replace=true;renderPerformance(state);
+        if(document.body.dataset.performancePane!=='palette')return false;
+        state.scale.editing=true;renderPerformance(state);
+        if(document.body.dataset.performancePane!=='scale')return false;
+        state.scale.editing=false;renderPerformance(state);
+        if(document.body.dataset.performancePane!=='palette')return false;
+        const tab=document.querySelector('[data-pane=palette]');tab.focus();tab.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));
+        if(!document.activeElement.matches('[data-pane=variation]'))return false;
+        document.querySelector('#live-palette').hidden=true;document.querySelector('[data-pane=palette]').click();
+        if(document.body.dataset.performancePane!=='rhythm')return false;
+        document.querySelector('#live-palette').hidden=false;renderPerformance(state);
+        return true;
+    })()`),'Editor navigation stays visible, follows keyboard gestures and handles unavailable palettes');
+    await window.webContents.executeJavaScript("document.querySelector('[data-pane=rhythm]').click();document.querySelector('#live-content').scrollTop=0");
+    window.setSize(1080,270);await new Promise(resolve=>setTimeout(resolve,100));
+    check(await window.webContents.executeJavaScript("document.querySelector('#project-health').dataset.tone === 'temp' && document.querySelector('#project-health summary').textContent.includes('TEMP edits')"), 'Capacity status in performance toolbar');
+    await window.webContents.executeJavaScript("document.querySelector('#project-health').open=true");
+    check(await window.webContents.executeJavaScript("(()=>{const r=document.querySelector('.project-health-body').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight})()"), 'Capacity disclosure fits the short strip');
+    fs.writeFileSync(path.join(app.getPath('userData'), 'project-capacity.png'), (await capture(window)).toPNG());
+    await window.webContents.executeJavaScript("document.querySelector('#project-health').open=false");
+    await window.webContents.executeJavaScript(`(async()=>{
+        const {renderTemp}=await import('/ui/temp.mjs');
+        const {renderLiveSteps}=await import('/ui/steps.mjs');
+        const {renderHardwareOrbit}=await import('/ui/orbit.mjs');
+        const state={active:true,running:true,track:0,type:1,bar:0,step:4,length:16,loopSteps:5,pattern:31,sounding:[67],temp:{active:false,queued:false},projectedNotes:Array.from({length:16},(_,i)=>i<5?[[60,63,67,70,67][i]]:[])};
+        renderTemp(document.querySelector('#live-temp'),state,true);
+        renderLiveSteps(document.querySelector('#live-steps'),state,true);
+        renderHardwareOrbit(document.querySelector('#hardware-orbit'),state,true);
+        document.querySelector('#live-position').textContent='5 / 5';
+    })()`);
+    check(await window.webContents.executeJavaScript("document.querySelector('#live-temp').dataset.temp === 'loop' && document.querySelector('#live-temp').textContent.includes('Global loop · 5 steps') && document.querySelector('#live-temp').textContent.includes('Release Enter')"), 'Momentary global loop feedback');
+    fs.writeFileSync(path.join(app.getPath('userData'), 'global-loop.png'), (await capture(window)).toPNG());
     await window.webContents.executeJavaScript(`(async()=>{
         const {renderCC}=await import('/ui/cc.mjs');
         document.body.dataset.liveMode='cc';
@@ -159,10 +287,10 @@ async function smokeTest() {
     })()`);
     check(await window.webContents.executeJavaScript("document.querySelectorAll('#tracks [data-mute=muted]').length===1 && document.querySelectorAll('#tracks [data-mute=partial]').length===1"), 'Distinct whole-track and partial mute indicators');
     await new Promise(resolve=>setTimeout(resolve,100));
-    fs.writeFileSync(path.join(app.getPath('userData'), 'performance-cc.png'), (await window.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(app.getPath('userData'), 'performance-cc.png'), (await capture(window)).toPNG());
     window.setSize(520, 250);
     await new Promise(resolve=>setTimeout(resolve,150));
-    fs.writeFileSync(path.join(app.getPath('userData'), 'performance-cc-minimum.png'), (await window.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(app.getPath('userData'), 'performance-cc-minimum.png'), (await capture(window)).toPNG());
     check(await window.webContents.executeJavaScript(allCCFit), 'All CC controls fit at the minimum window size');
     const web = new BrowserWindow({width:1280,height:800,show:false,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});
     await web.loadURL(`${service.origin}/ui/`);
@@ -179,9 +307,40 @@ async function smokeTest() {
         const cells=[...document.querySelectorAll('.cc-slot')];
         return !window.seqDesktop && !document.body.classList.contains('desktop-performance') && muted.textContent==='Muted' && getComputedStyle(muted).display!=='none' && cells.length===16 && cells.every(c=>{const r=c.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;});
     })()`), 'Browser UI shows explicit mute labels and all sixteen CC controls');
-    fs.writeFileSync(path.join(app.getPath('userData'),'web-cc-mutes.png'),(await web.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(app.getPath('userData'),'web-cc-mutes.png'),(await capture(web)).toPNG());
+    if (!app.isPackaged) {
+        await web.loadURL(`${service.origin}/ui/project-health-fixture.html`);
+        check(await web.webContents.executeJavaScript("document.title.startsWith('PASS')"), 'Rendered capacity fixture: '+await web.webContents.executeJavaScript("document.querySelector('#result')?.textContent || document.title"));
+    } else {
+        await web.loadURL(`${service.origin}/ui/`);
+        await web.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'smoke-preview.js'), 'utf8'));
+        await web.webContents.executeJavaScript("document.querySelector('#project-health').open=true");
+        check(await web.webContents.executeJavaScript("document.querySelector('#project-health').textContent.includes('TEMP edits')"), 'Bundled browser capacity status');
+    }
+    web.setSize(390, 844);
+    await new Promise(resolve=>setTimeout(resolve,150));
+    check(await web.webContents.executeJavaScript('document.documentElement.scrollWidth <= innerWidth'), 'Capacity fits phone width');
+    fs.writeFileSync(path.join(app.getPath('userData'),'project-capacity-phone.png'),(await capture(web)).toPNG());
+    if (!app.isPackaged) {
+        web.setSize(1080, 900);
+        await web.loadURL(`${service.origin}/ui/palette-chords-fixture.html`);
+        check(await web.webContents.executeJavaScript("document.title.startsWith('PASS')"), 'Rendered chord palette: '+await web.webContents.executeJavaScript("document.querySelector('#result').textContent"));
+        fs.writeFileSync(path.join(app.getPath('userData'),'chord-palette.png'),(await capture(web)).toPNG());
+        web.setSize(390, 844);
+        await new Promise(resolve=>setTimeout(resolve,150));
+        check(await web.webContents.executeJavaScript('document.documentElement.scrollWidth <= innerWidth'), 'Chord picker fits phone width');
+        fs.writeFileSync(path.join(app.getPath('userData'),'chord-palette-phone.png'),(await capture(web)).toPNG());
+        web.setSize(1080, 900);
+        await web.loadURL(`${service.origin}/ui/variation-fixture.html`);
+        check(await web.webContents.executeJavaScript("document.title.startsWith('PASS')"), 'Rendered variation controls: '+await web.webContents.executeJavaScript("document.querySelector('#result').textContent"));
+        fs.writeFileSync(path.join(app.getPath('userData'),'variation.png'),(await capture(web)).toPNG());
+        web.setSize(390, 844);
+        await new Promise(resolve=>setTimeout(resolve,150));
+        check(await web.webContents.executeJavaScript('document.documentElement.scrollWidth <= innerWidth'), 'Variation controls fit phone width');
+        fs.writeFileSync(path.join(app.getPath('userData'),'variation-phone.png'),(await capture(web)).toPNG());
+    }
     web.destroy();
-    console.log(JSON.stringify({result: 'PASS' , ownedService: service.owned, midi, statePath, screenshot: path.join(app.getPath('userData'), 'performance.png')}));
+    console.log(JSON.stringify({result: 'PASS'  , ownedService: service.owned, midi, statePath, screenshot: path.join(app.getPath('userData'), 'performance.png')}));
     app.quit();
 }
 if (!app.requestSingleInstanceLock()) app.quit();

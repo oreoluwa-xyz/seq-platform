@@ -1,6 +1,12 @@
 Shared Drum Lane Storage
 
+## Project status
+
+Open **Capacity** in the live panel or desktop performance toolbar to see unsaved/saved status, resource usage, and whether the current project fits on-board storage and TEMP. Readings do not stop playback. See [the manual](MANUAL.md#project-capacity-and-save-status) for limits and restore compatibility.
+
 ## TEMP performance mode
+
+**Hold Enter + turn the knob** for a momentary global loop limit, one step per detent. From 16 steps, turn left eleven times to loop the first 5 steps across all tracks. Shorter tracks keep their own length. Release Enter to return to the original lengths on the running transport. Notes, chords, drum patterns and automation remain intact; no snapshot capacity is needed. The keyboard shows the count with Enter orange, and the live toolbar shows **Global loop · 5 steps**. Finish held edits and disarm recording first. See [the manual](MANUAL.md#temp-performance-mode) for interaction with TEMP and other shortcuts.
 
 Hold **Enter** and tap **Esc** to capture a restore point for all tracks. Esc turns **purple** only after the complete snapshot fits. Release Enter, make your buildup changes, then tap **Esc** to restore the drop and leave TEMP. Playback stays on the current transport position; it does not restart. **Shift + Esc** queues restoration for the start of the next global 16-step bar. Esc blinks purple while queued. Press **Shift + Esc again** to cancel the queued restore and keep TEMP active (solid purple), extending the buildup. Press it again when ready to queue the next bar. Esc alone restores immediately, and Enter + Esc keeps the edits and cancels the queued restore. When stopped, Shift + Esc restores immediately; stopping playback with a restore queued also restores it.
 
@@ -262,7 +268,7 @@ While the sequencer is active, press **Ctrl + Space** to open Scale mode. Releas
 
 Open **Scale** in the hardware panel to choose root and mode visually, audition the pending scale using the browser sound, then Apply global. The header’s Sound mute applies to auditions. Global scale starts off, preserving older projects. Per-track choices are **Follow global**, **Local key / scale**, or **Unconstrained**, with nearest, downward or upward snapping. Nearest ties snap down; at MIDI boundaries the nearest in-range scale tone is used. Apply track commits those settings.
 
-Quantization runs after melodic pitch generation and the accumulator, without rewriting stored notes or palettes. Disabling it restores source pitches. Scale changes release affected sounding notes; playback then continues in the new scale. Drums bypass it. Stored melodic chords are quantized voice by voice and duplicate output pitches share note ownership. Live step labels include quantization but remain before accumulator effects. Use Save or computer backup to persist global and track settings; standalone module files do not contain these host track settings. Old projects default to global off and Follow global; older firmware cannot load the new scale-setting extensions.
+Quantization runs after melodic pitch generation and the accumulator, without rewriting stored notes or palettes. Disabling it restores source pitches. Scale changes release affected sounding notes; playback then continues in the new scale. Drums bypass it. With variation and accumulator disabled, ordinary recorded polyphony is quantized voice by voice and duplicate output pitches share note ownership. When the grouped accumulator/variation renderer is active, multi-voice onsets retain their interval shape; single notes retain normal quantization. Live step labels include quantization but remain before accumulator effects. Use Save or computer backup to persist global and track settings; standalone module files do not contain these host track settings. Old projects default to global off and Follow global; older firmware cannot load the new scale-setting extensions.
 
 
 ### Create a complementary chord track
@@ -356,3 +362,15 @@ On **drums**, Ctrl + Euclid prints generated hits into the **selected lane**, in
 Printing captures the underlying pattern before probability skips, mutes and evolving accumulator movement; it does not record one randomized performance. Up to 128 note events fit, counting each chord voice. If the print would exceed that limit, Esc flashes magenta and the original notes and Euclid mode remain unchanged. Finish recording, step editing, chord/palette capture and project transfers first. This shortcut supports melodic Euclid tracks and the selected drum lane, but not Chord Bank tracks.
 
 You can now add notes between the printed hits, remove notes, or edit their pitches, velocities and lengths. **Space + Enter** saves the result. Plain Euclid tap still only exits the controls; **Ctrl + Shift + Euclid + note keys** still replaces the palette.
+
+
+### Euclidean chord palette
+
+Choose **Chord palette** in the live companion or **Euclid button + C** on a melodic track. In latched Euclid, hold a palette number **1–8 + knob** to change one chord quality, or **0 + knob** for all. A number tap pins; tap 0 to cycle. The picker follows the scale editor: orange root, green chord tones, violet quality. Home-row keys select fixed types; Z/X select Auto triad/seventh with the active scale. Fixed types retain their intervals. See MANUAL.md for the key map and scale-off behavior. Chord qualities persist through saves, backups and TEMP.
+
+
+### Reversible phrase variation
+
+The live **Variation** panel supports reverse/rotate/reshuffle, random selection, root mutation, octave voicing, reroll/lock, current/all-melodic-track scope, and next-global-bar application. It works with recorded onset groups and Euclidean note/chord palettes. Original notes remain in place; only compact playback settings are stored. Save keeps the settings; Reset restores the source phrase, and TEMP restores its captured settings. See **Vary a playing phrase** in `MANUAL.md` for scale behavior, gate rules, and controls.
+
+The accumulator now advances once per note/chord onset, including recorded-step compositions and Chord mode. It preserves chord intervals and note-off ownership. The companion exposes accumulator settings alongside variation; existing step-edit keys remain available. Live labels include variation before probability and accumulator movement. Disable variation before printing Euclid to recorded notes.

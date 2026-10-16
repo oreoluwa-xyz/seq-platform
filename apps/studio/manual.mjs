@@ -1,5 +1,5 @@
-import {helpFor,guideComponents,moduleFromLive} from './component-help.mjs?v=008213ee62';
-import {setupKeyboard} from './keyboard.mjs?v=b9195af0d3';
+import {helpFor,guideComponents,moduleFromLive} from './component-help.mjs?v=1b4a360ca4';
+import {setupKeyboard} from './keyboard.mjs?v=11bbe2f648';
 
 // A small, text-only renderer for the repository manual's Markdown subset.
 // Build DOM nodes rather than interpreting documentation as HTML.

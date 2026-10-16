@@ -1,5 +1,5 @@
 import {rootNames,scaleNames,scaleNotes} from './scale.mjs?v=bcc8228f15';
-import {noteName} from './module.mjs?v=08f7f2e951';
+import {noteName} from './module.mjs?v=8c4bcd2da4';
 export const chordTypes=['Major','Minor','Diminished','Augmented','Sus2','Sus4','Dominant 7','Major 7','Minor 7','Half-diminished 7','In-scale triad','In-scale seventh','Custom','In-scale ninth','In-scale sixth','In-scale add9','Diminished 7'];
 const suffix=['','m','dim','aug','sus2','sus4','7','maj7','m7','m7♭5',' · scale triad',' · scale 7'];
 export const scaleChordTypes=[10,11,13,14,15];

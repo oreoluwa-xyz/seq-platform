@@ -1,4 +1,4 @@
-import {checksum} from './module.mjs?v=08f7f2e951';
+import {checksum} from './module.mjs?v=8c4bcd2da4';
 const PREFIX=[0xF0,0x7D,83,69,81,1];
 export class SequencerConnection {
   constructor(input,output) { this.input=input; this.output=output; this.pending=null; this.sysex=[]; this.receivedBytes=0; this.listener=e=>this.receive(e.data); input.addEventListener('midimessage',this.listener); }

@@ -1,5 +1,5 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Palette removal fixture</title><link rel="stylesheet" href="style.css"><body style="padding:24px"><h1>Palette removal</h1><p id="result">Checking…</p><div id="live-palette" style="max-width:900px"></div><script type="module">
-import {renderPalette,paletteRemovePayload} from './palette.mjs';
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Palette removal fixture</title><link rel="stylesheet" href="style.css?v=53f3924284"><body style="padding:24px"><h1>Palette removal</h1><p id="result">Checking…</p><div id="live-palette" style="max-width:900px"></div><script type="module">
+import {renderPalette,paletteRemovePayload} from './palette.mjs?v=831d6385ec';
 const root=document.querySelector('#live-palette'),edits=[];
 const state={active:true,type:1,child:false,engine:0,visual:{mode:'euclid',os:'win'},palette:{removeSupported:true,root:0,editable:true,captureEditable:true,clearShortcut:true,replaceShortcut:true,mode:'palette',pin:2,saved:[{note:60,offset:0},{note:64,offset:4},{note:67,offset:7}],slots:[],capture:[]}};
 const render=(ready=true)=>renderPalette(root,state,ready,()=>{},()=>{},index=>edits.push([...paletteRemovePayload(state.palette,index)]));

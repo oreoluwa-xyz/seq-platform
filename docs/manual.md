@@ -1,6 +1,18 @@
 **Sequencer Manual**
 
+## Project capacity and save status
+
+Open **Capacity** beside the live status (in the desktop performance toolbar when compact). It shows whether the keyboard has unsaved changes or a confirmed on-board save, plus drum lanes, selected-track notes, shared chord recipes, CC automation, selected-lane step edits, and encoded storage sizes. Readings update about once a second and do not stop playback or save to flash. Disconnection hides old values; older firmware shows an update message.
+
+**On-board save** and **TEMP snapshot** are separate limits. A playable project can exceed either limit. TEMP says **ready** only when the current reading fits and no gesture blocks entry; the keyboard still checks again when you capture. While TEMP is active, the panel also shows the size of the original retained drop. Keeping TEMP edits does not immediately save them. A failed oversized save preserves the previous on-board save; use a computer backup for projects that do not fit. These indicators do not claim a computer backup exists.
+
+Full-project restoration now clears the shared chord recipe pool as well as notes, drum lanes and automation. The updated backup utility checks the combined recipe budget before clearing the keyboard; update firmware if it reports that complete chord-capacity preflight is unavailable.
+
 ## TEMP performance mode
+
+**Momentary global loop:** hold **Enter** and turn the knob. Each detent changes the playback limit by one step, starting from the focused track's original length. For a 16-step track, turn left eleven detents for a 5-step loop across the project. Tracks already shorter than the limit retain their own length. Release Enter to restore every track's original length at the current transport position. The keyboard shows the step count with Enter orange; the live toolbar shows **Global loop · 5 steps**.
+
+This shortcut preserves all recorded notes, chord recipes, drum hits, lane rhythms and CC automation; it never trims or saves them, and it does not require a TEMP snapshot. It works with internal or external clock. Finish held edits and disarm recording first. Starting another action-key gesture, stopping transport, or exiting the sequencer ends the loop. **Ctrl + knob** retains tempo priority. **Enter + Esc**, **Space + Enter**, and Enter in the scale editor keep their existing actions. The loop limit can also be used during TEMP; releasing Enter leaves that snapshot intact.
 
 Hold **Enter** and tap **Esc** to capture a restore point for all tracks. Esc turns **purple** only after the complete snapshot fits. Release Enter, make your buildup changes, then tap **Esc** to restore the drop and leave TEMP. Playback stays on the current transport position; it does not restart. **Shift + Esc** queues restoration for the start of the next global 16-step bar. Esc blinks purple while queued. Press **Shift + Esc again** to cancel the queued restore and keep TEMP active (solid purple), extending the buildup. Press it again when ready to queue the next bar. Esc alone restores immediately, and Enter + Esc keeps the edits and cancels the queued restore. When stopped, Shift + Esc restores immediately; stopping playback with a restore queued also restores it.
 
@@ -260,7 +272,7 @@ Exporting a combination saves a version 2 composition; importing or reading it r
 
 For Euclidean chords, choose a bank slot and set the pulse count. Every pulse plays that selected chord with a one-step gate; its slot length still controls stamping, not the generated gate. On the keyboard, Alt/Option + number selects/auditions a bank slot and Alt/Option + step stamps it. Configure the composed chord rhythm in the UI, then install; Alt remains the bank controls.
 
-Follow recorded steps + Track notes plays the original sustained phrase. Euclid + Stored notes retains the note-span/palette behavior described above. Compositions preserve source notes; choose Follow recorded steps + Track notes to hear the recorded phrase with its full note lengths. The legacy accumulator is inactive in compositions until it becomes an explicit component.
+Follow recorded steps + Track notes plays the original sustained phrase. Euclid + Stored notes retains the note-span/palette behavior described above. Compositions preserve source notes; choose Follow recorded steps + Track notes to hear the recorded phrase with its full note lengths. The accumulator also works with recorded-step compositions and moves each onset group together.
 
 Live module readouts identify the rhythm and pitch source together. Step-note cards continue to show stored source notes; **Selected on keyboard** and **Sounding now** show the bank selection and sampled output. Updated firmware is required for compositions. The UI checks supported component versions and size limits before installation.
 
@@ -386,7 +398,7 @@ Chord mode uses recorded timing. Each chord ends at the next onset or the loop b
 
 There are **64 chord recipes shared across all tracks** and the existing **128 recorded note events per track**. Triads use three events; sevenths, sixths and add-nine chords use four; ninths use five. Failed edits retain the previous chord. On-board saving and computer project backups preserve recipes and notes, subject to the existing on-board storage limit. Older firmware does not support this recipe extension.
 
-This first slice edits chords authored in Chord mode. Existing melody, Chord Bank and Harmony workshop notes keep playing, but are not automatically grouped; an overlapping placement reports that recorded notes occupy the region. Individual-note edits, clears, trims or copies outside Chord mode can detach the affected recipes; their remaining notes stay ordinary melodic events. Workshop read/edit/write is described below. Custom/bank recipe import is available in the workshop below. Spread and Euclidean chord palettes remain planned. Live recording continues to create ordinary melodic events; step placement is the way to author grouped chords in this slice.
+This first slice edits chords authored in Chord mode. Existing melody, Chord Bank and Harmony workshop notes keep playing, but are not automatically grouped; an overlapping placement reports that recorded notes occupy the region. Individual-note edits, clears, trims or copies outside Chord mode can detach the affected recipes; their remaining notes stay ordinary melodic events. Workshop read/edit/write is described below. Custom/bank recipe import is available in the workshop below. Spread remains planned. Euclidean chord palettes are available in Melody mode, as described below. Live recording continues to create ordinary melodic events; step placement is the way to author grouped chords in this slice.
 
 ## Editing chord tracks in the Harmony workshop
 
@@ -490,3 +502,34 @@ You can now add notes between the printed hits, remove notes, or edit their pitc
 Desktop and web track lists use the same live mute information. Fully muted tracks show a steady red indicator with **Muted** in the workshop or **M** in the desktop strip. A pulsing red indicator with **Partial mute** (or **±**) means some drum lanes or a wrapped melodic layer are muted while other layers may still sound. Hover a track for its status. Pulsing respects reduced-motion preferences. A disconnected keyboard or older firmware reports mute status as unavailable rather than assuming the track is unmuted.
 
 CC controls use compact tiles with the keyboard key, CC number, value and MIDI channel. The desktop strip keeps all sixteen in two rows; the web workshop adapts its column count to available width.
+
+
+## Euclidean chord palettes
+
+On a melodic Euclid track, capture root notes into the palette as usual. Select **Chord palette** in the companion, or hold the **Euclid button and tap C** to toggle Palette notes / Chord palette. Newly captured slots start Major; changing pitch modes preserves existing qualities. Recorded notes on a step still override the palette.
+
+Double-tap the Euclid button to latch its controls. **Hold 1–8 and turn the knob** to change that slot's chord quality; **hold 0 and turn** to set every slot. A number tap without a turn pins that slot; tapping 0 resumes cycling. The pin is applied only on release, so editing never briefly pins a progression. Release the number to return the knob to its previous Euclid parameter. Changes take effect on the next generated hit. Ctrl + knob retains tempo priority and cancels the pending slot gesture.
+
+While a slot is held, the picker uses the scale picker's colors: **orange root, green chord tones, violet selected quality**, with dim violet alternatives. Home-row keys directly choose **A Major, S Minor, D Diminished, F Augmented, G Sus2, H Sus4, J Dominant 7, K Major 7, L Minor 7, ; Half-diminished 7, ' Diminished 7**. **Z Auto triad / X Auto seventh** follow the active global or local scale. Auto lights both its own key and the resolved home-row quality when the voicing matches a named chord. The companion shows the selected slot, quality, resulting notes, and an explicit “Auto → …” label. For all-slot editing, the keyboard previews the first slot; the companion reports mixed qualities until they are unified.
+
+Fixed qualities preserve their intervals even when global scale is enabled. Auto is offered only with an enabled global/local scale. If that scale is later turned off, an existing Auto entry plays its root alone and the companion says “scale off, root only”; re-enabling the scale restores harmonization. A chord that exceeds MIDI pitch range is silent; lower the palette octave. New palette captures replace qualities with Major; Add notes retains existing qualities, while removal moves each quality with its root.
+
+Palette chords cycle on Euclidean hits, or stay pinned. They use one-step gates, the existing whole-chord probability and accent controls, and do not consume stored chord recipes or note events until printed. Printing renders the same chords subject to the existing 128-note limit and sets that track to Unconstrained, preserving the baked pitches instead of quantizing fixed qualities again. The global scale and other tracks are unchanged. Save, project backup, module export and TEMP preserve qualities. The chord-palette wire extension requires current firmware and companion software; older modules retain their existing behavior.
+
+## Vary a playing phrase
+
+Open **Variation** in the companion’s live keyboard view. These controls work with recorded Melody/Chord tracks and Euclidean note/chord palettes. They change playback without copying or rewriting the source notes.
+
+- **Reverse**, **Rotate**, and **Reshuffle** change pitch order. Reshuffle uses each source entry once; **Random selection** can repeat entries. A palette entry carries its chord quality. Recorded notes sharing an onset move together as a chord. Reordered chords use the destination onset, its longest gate, and its first voice’s velocity. Original-order groups retain their individual voice gates and velocities. A pinned palette entry remains pinned.
+- **Mutation chance** controls how often a group’s root changes. With global/local scale enabled, **Range** measures scale degrees. With scale off, it chooses an existing palette root within the range in semitones; no eligible root means no change. Every chord voice moves by the same amount, preserving the current interval shape. This also preserves the currently rendered quality of Auto chords rather than reharmonizing each mutated root.
+- **Voicing** raises the lowest one, two, or three voices by octaves, or chooses a random inversion. MIDI-range limits never clip a chord voice or collapse it onto another voice.
+- **Lock** freezes the current random seed so the variation repeats each track loop. **Unlock / evolve** chooses a new deterministic variation each track loop. **Reroll** changes the seed; it affects Reshuffle, Random selection, mutation, and random inversion. Forward/reverse/rotation alone do not depend on the seed.
+- Choose **This track** or **All melodic tracks**, then apply immediately or at the **next global bar** (16 steps). Drum lanes remain outside this scope. A queued change can be cancelled; stopping transport applies it. The panel distinguishes a local draft, a queued change, and the active settings.
+
+**Reset variation** returns to the source phrase and leaves accumulator settings intact. **Save on board** keeps the playback settings; a computer backup includes them. TEMP restores the source and the variation/accumulator settings from TEMP entry. This keeps the result as a reversible transform; it does not bake a new performance into note events. Disable/reset variation before using Euclid’s print shortcut.
+
+### Chord-aware accumulator
+
+The accumulator now chooses one palette offset per onset, including complete chords and recorded-step compositions. A three-voice chord advances it once, not three times. Sustained voices keep that offset until their release; probability-skipped Euclid hits do not advance it. Near MIDI limits, the shared shift is reduced so the whole chord fits. Multi-voice groups keep their intervals; single-note output retains normal scale quantization.
+
+The Variation panel exposes enable, forward/backward/random traversal, and reset after 2 or 4 onsets. Accumulator edits apply immediately; existing step-edit shortcuts remain available. Chord mode no longer bypasses the accumulator. Live projected labels include variation but exclude accumulator movement and probability.

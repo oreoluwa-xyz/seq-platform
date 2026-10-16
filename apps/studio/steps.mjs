@@ -1,5 +1,6 @@
-import {chordLabel} from './chord-mode.mjs?v=886590c057';
-import {noteName} from './module.mjs?v=08f7f2e951';
+import {paletteSlotForStep,paintPaletteSelection} from './palette-links.mjs?v=b388aa571a';
+import {chordLabel} from './chord-mode.mjs?v=e16e3e7465';
+import {noteName} from './module.mjs?v=8c4bcd2da4';
 
 export function liveBarLabel(state){
   const start=state.bar*16+1,end=Math.min((state.bar+1)*16,state.length),playBar=Math.floor(state.step/16);
@@ -8,10 +9,11 @@ export function liveBarLabel(state){
 }
 
 export function renderLiveSteps(root,state,ready,onUsePalette){
+  root.paletteTrack=state.track;
   const melodic=state.type!==0&&!state.child;
   root.classList.toggle('melodic-steps',melodic);
   root.replaceChildren(...Array.from({length:16},(_,i)=>{
-    const step=state.bar*16+i, outside=step>=state.length;
+    const step=state.bar*16+i, outside=step>=(state.loopSteps?Math.min(state.loopSteps,state.length):state.length);
     const pitches=melodic&&!outside?(state.projectedNotes??state.stepNotes)?.[i]:null;
     const names=pitches?.map(noteName);
     const hit=!!(state.pattern&(1<<i)),playhead=ready&&state.active&&state.running&&state.step===step;
@@ -24,14 +26,16 @@ export function renderLiveSteps(root,state,ready,onUsePalette){
       label.textContent=chord?`${chord.onset?'':'↳ '}${chordLabel(chord)}`:outside?'—':names?.length?names.join(' · '):names?'—':'?';
       node.append(label);
     }
-    const slot=state.palette?.slots[i],entry=slot!==undefined&&slot!==255?state.palette.saved[slot]:null;
-    const override=state.euclid?.euclidean&&state.euclid.enabled&&state.palette?.editable&&state.palette.mode==='palette'&&!!(state.palette.overrides&(1<<i));
+    const slot=paletteSlotForStep(state,i),entry=slot!==null?state.palette.saved[slot]:null;
+    if(slot!==null)node.dataset.paletteSlot=String(slot);
+    const override=state.euclid?.euclidean&&state.euclid.enabled&&state.palette?.editable&&state.palette.mode!=='transpose'&&!!(state.palette.overrides&(1<<i));
     if(melodic&&!outside&&override){const badge=document.createElement('span');badge.className='step-override';badge.textContent='Recorded override';node.append(badge);const button=document.createElement('button');button.textContent='Use palette';button.setAttribute('aria-label',`Use palette on step ${step+1}`);button.disabled=!ready||state.palette.capturing;button.onclick=()=>onUsePalette?.(step);node.append(button);}
-    if(melodic&&!outside&&entry){const badge=document.createElement('span');badge.className='step-palette-slot';badge.textContent=`P${slot+1}${state.palette.mode==='palette'?'':` · ${entry.offset>=0?'+':''}${entry.offset}`}`;badge.title=`Palette slot ${slot+1}, offset ${entry.offset} semitones`;node.append(badge);}
+    if(melodic&&!outside&&entry){const badge=document.createElement('span');badge.className='step-palette-slot';badge.textContent=`P${slot+1}${state.palette.mode!=='transpose'?'':` · ${entry.offset>=0?'+':''}${entry.offset}`}`;badge.title=`Palette slot ${slot+1}, offset ${entry.offset} semitones`;node.append(badge);}
     const description=`Step ${step+1}${outside?', outside loop':melodic?`, ${state.projectedNotes?'projected':'stored'} notes: ${names?names.join(', ')||'none':'unavailable; firmware update needed'}`:hit?', note present':''}${playhead?', playhead':''}`;
     node.setAttribute('aria-label',description);node.title=description;
     return node;
   }));
+  paintPaletteSelection(root.ownerDocument.querySelector('#live-palette'),root);
   if(state.chordMode?.enabled)return 'Chord onsets and sustain tails · hold any part of a chord to edit it as a group.';
   return melodic?(state.projectedNotes?'Projected notes before probability, mutes and accumulator. Empty steps are rests.':state.stepNotes?'Stored notes · sustained notes appear on each step they span. Euclid may alter playback.':'Update keyboard firmware to see the notes stored on each step.'):'Hardware step view';
 }

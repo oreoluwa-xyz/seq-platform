@@ -12,7 +12,7 @@ test('Restore onto a connected display and clamp corrupt/oversize geometry', () 
     const offscreen = fitBounds({x: 3000, y: -500, width: 900, height: 700}, displays);
     assert.deepEqual(offscreen, {x: 540, y: 25, width: 900, height: 700});
     assert.deepEqual(fitBounds({x: 0, y: 0, width: 10000, height: 10000}, displays), {x: 0, y: 25, width: 1440, height: 875});
-    assert.equal(fitBounds({width: 'bad'}, displays, true).width, 1080);
+    assert.equal(fitBounds({width: 'bad'}, displays, true).width, 1440);
     const external = [...displays, {workArea: {x: -1920, y: 0, width: 1920, height: 1080}}];
     assert.equal(fitBounds({x: -1500, y: 50, width: 800, height: 600}, external, true).x, -1500);
     assert.equal(normalizeState({pinned: 'yes'}).pinned, true);
@@ -57,9 +57,25 @@ test('Start and gracefully stop the actual helper on an unused port', async () =
 
 test('Performance strip defaults to bottom center and preserves saved bounds', () => {
     assert.equal(normalizeState().compact, true);
-    assert.deepEqual(fitBounds(null, displays, true), {x:180,y:618,width:1080,height:270});
+    assert.deepEqual(fitBounds(null, displays, true), {x:0,y:630,width:1440,height:270});
     const saved={x:40,y:50,width:1000,height:380};
     assert.deepEqual(fitBounds(saved, displays, true),saved);
     const small=[{workArea:{x:-640,y:38,width:640,height:270}}];
     assert.deepEqual(fitBounds(null,small,true),{x:-640,y:38,width:640,height:270});
+});
+
+ test('Restore a wide low DAW footprint once and preserve later manual placement', () => {
+    const old={performance:{x:30,y:40,width:1080,height:270}};
+    assert.equal(normalizeState(old).performance,undefined);
+    assert.equal(old.performance.height,270);
+    assert.equal(normalizeState({...old,layoutVersion:3}).performance.height,270);
+});
+
+test('Low performance strip preserves placement across the Dock reserved area',()=>{
+    const screen=[{workArea:{x:0,y:25,width:1512,height:902},bounds:{x:0,y:0,width:1512,height:982}}];
+    assert.deepEqual(fitBounds(null,screen,true),{x:36,y:712,width:1440,height:270});
+    const saved={x:35,y:712,width:1440,height:270};
+    assert.deepEqual(fitBounds(saved,screen,true),saved);
+    assert.equal(fitBounds({...saved,y:900},screen,true).y,712);
+    assert.equal(fitBounds(saved,screen,false).y,527);
 });

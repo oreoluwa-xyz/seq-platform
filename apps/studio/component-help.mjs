@@ -28,6 +28,13 @@ export const componentHelp = {
     example:'Capture only F3: every empty Euclidean hit plays F3, even if C3 was picked earlier. Record A3 on a step to override the palette there.',
     compatibility:'Follow recorded steps keeps recorded notes and lengths. Palette mode affects melodic Euclidean playback; drum-note behavior is unchanged. Older saved modules open in Transpose phrase.'
   },
+  'pitch.track@3': {
+    title:'Chord palette',purpose:'Turn each palette root into a chord on Euclidean hits.',
+    parameters:['Fixed major, minor and seventh qualities preserve their intervals. Auto triad and Auto seventh follow the active global or local scale.','Recorded notes still override the palette on their steps.'],
+    gestures:['Hold the Euclid button and tap C to toggle chord palette. In latched Euclid, hold 1–8 and turn the knob to edit one slot; hold 0 and turn for all. Tap numbers without turning to pin or resume cycling.','The home row selects chord types while a slot is held. Z/X choose Auto triad/seventh. Root is orange, chord tones green, selected quality violet.'],
+    example:'Capture C, A-flat, B-flat and E-flat; set Minor 7, Major 7, Dominant 7 and Major 7, then play five Euclidean hits.',
+    compatibility:'Requires chord-palette firmware. Existing Auto entries play only their root with scale off. New captures start Major. Qualities survive saves, backups and TEMP.'
+  },
   'pitch.chord-bank@1': {
     title:'Chord bank',purpose:'Choose one of twelve chords to supply the notes for generated hits.',
     parameters:['Each slot holds up to eight notes and a velocity. Transpose shifts the chord; inversion changes its voicing.','Slot length sets the duration of stamped or recorded chords. Generated chords use a one-step gate.'],
@@ -43,11 +50,12 @@ export function helpFor(component){
 }
 export function guideComponents(module){
   if(module.version===2)return module.components;
-  if(module.engine==='euclid')return [{id:'rhythm.euclid',version:1},{id:'pitch.track',version:module.version===3?2:1}];
+  if(module.engine==='euclid')return [{id:'rhythm.euclid',version:1},{id:'pitch.track',version:module.version===4?3:module.version===3?2:1}];
   return [{id:'pitch.chord-bank',version:1}];
 }
 export function moduleFromLive(state){
   if(!state)return null;
+  const chords=state.palette?.chordSupported&&state.palette.mode==='chords';
   const pitch=state.engine===1?'pitch.chord-bank':'pitch.track',modern=state.palette?.editable&&state.palette.mode==='palette';
-  return state.composed?{version:2,components:[{id:state.rhythm==='euclid'?'rhythm.euclid':'rhythm.stored',version:1},{id:pitch,version:modern?2:1}]}:{version:modern?3:1,engine:state.engine===1?'chord-bank':'euclid'};
+  return state.composed?{version:2,components:[{id:state.rhythm==='euclid'?'rhythm.euclid':'rhythm.stored',version:1},{id:pitch,version:chords?3:modern?2:1}]}:{version:chords?4:modern?3:1,engine:state.engine===1?'chord-bank':'euclid'};
 }

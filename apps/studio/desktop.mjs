@@ -1,3 +1,4 @@
+import {renderPerformance} from './performance.mjs?v=e8da829dbf';
 const desktop = window.seqDesktop;
 if (desktop) {
     document.body.classList.add('desktop-app');
@@ -8,7 +9,7 @@ if (desktop) {
     const pin = document.createElement('button'); pin.id = 'desktop-pin'; pin.title = 'Keep SEQ above your DAW · ⌘/Ctrl + Shift + P';
     const compact = document.createElement('button'); compact.id = 'desktop-compact'; compact.title = 'Switch between the workshop and a compact live view · ⌘/Ctrl + Shift + M';
     const hide = document.createElement('button'); hide.textContent = 'Hide'; hide.id = 'desktop-hide';
-    const moved = ['connection','manual-open','connect','live-temp'].map(id=>{
+    const moved = ['connection','manual-open','connect','live-temp','project-health'].map(id=>{
         const node=document.getElementById(id),anchor=document.createComment('desktop '+id);
         node.before(anchor);return {node,anchor};
     });
@@ -21,6 +22,7 @@ if (desktop) {
         document.querySelector('#live-content').append(document.querySelector('#cc-dock'));
         document.querySelector('#manual-open').title='Keyboard guide and manual · follows the hardware mode';
         document.body.classList.toggle('desktop-performance', state.compact);
+        renderPerformance();
         pin.textContent = state.pinned ? 'Pinned' : 'Pin'; pin.setAttribute('aria-pressed', String(state.pinned));
         compact.textContent = state.compact ? 'Workshop ↗' : 'Performance view'; compact.setAttribute('aria-pressed', String(state.compact));
     };

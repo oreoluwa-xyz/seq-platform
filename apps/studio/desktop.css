@@ -1,143 +1,168 @@
-/* Performance mode keeps the workshop's paper, typography, orbits and knobs. */
-.desktop-toolbar{position:sticky;top:0;z-index:90;display:flex;gap:8px;align-items:center;min-height:32px;padding:4px 14px;background:var(--paper);border-bottom:1px solid var(--line)}
-.desktop-toolbar>span{margin-right:auto;font:9px var(--mono);letter-spacing:1px;color:var(--muted)}
-.desktop-toolbar button{padding:3px 8px;font-size:11px}
+/* Desktop chrome and the live performance workspace. */
+.desktop-toolbar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--paper);border-bottom:1px solid var(--line)}
+.desktop-toolbar>span:first-child{margin-right:auto;font:10px var(--mono)}
+.desktop-toolbar button{font-size:11px;padding:4px 8px;white-space:nowrap}
 .desktop-toolbar #desktop-pin[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
-.desktop-performance>header{height:auto;min-height:44px;padding:7px 14px;gap:12px;flex-wrap:wrap}
-.desktop-performance .brand{font-size:25px;letter-spacing:-2px}
-.desktop-performance .brand-sub,.desktop-performance .brand .logo{display:none}
-.desktop-performance .header-right{gap:8px;flex-wrap:wrap;margin-left:auto}
-.desktop-performance .header-right button{font-size:11px;padding:4px 8px}
-.desktop-performance .header-right .connection{font-size:10px}
+#performance-tabs{display:none}
+.performance-navigation{display:contents}
+.temp-help{display:none}
+body.desktop-performance{height:100dvh;overflow:hidden;display:flex;flex-direction:column;padding-bottom:0}
+.desktop-performance>header{display:none}
+.desktop-performance .desktop-toolbar{flex:0 0 auto;gap:7px;min-height:34px;flex-wrap:nowrap}
+.desktop-performance .desktop-toolbar>span:first-child{font:600 22px var(--sans);letter-spacing:-1px;margin:0 4px 0 0}
+.desktop-performance .desktop-toolbar .connection{margin-left:auto;margin-right:0;font:10px var(--mono);letter-spacing:0;white-space:nowrap}
 .desktop-performance #manual-open kbd{display:none}
-.desktop-performance .app-shell{display:block;min-height:0}
-.desktop-performance .sidebar{display:block;width:100%;padding:5px 14px;border-right:0;border-bottom:1px solid var(--line)}
+.desktop-performance .desktop-toolbar .temp-panel{position:relative;margin:0;padding:0;border:0;flex-shrink:0;background:transparent}
+.desktop-performance .temp-heading{font-size:10px;gap:5px;white-space:nowrap}
+.desktop-performance .temp-light{width:6px;height:6px}
+.desktop-performance .temp-help{display:inline-block;font:10px var(--mono);padding:2px 5px}
+.desktop-performance .temp-caption,.desktop-performance .temp-panel:not(.temp-expanded)>:not(.temp-heading){display:none}
+.desktop-performance .desktop-toolbar .temp-expanded{position:absolute;z-index:100;right:12px;top:40px;width:min(360px,calc(100vw - 24px));padding:12px;background:var(--paper);border:1px solid var(--line);box-shadow:0 8px 25px #0002;max-height:calc(100dvh - 54px);overflow:auto}
+.desktop-performance .temp-expanded p{font-size:11px}
+.desktop-performance .temp-shortcuts{font-size:10px}
+.desktop-performance .app-shell{width:100%;max-width:none;margin:0;display:flex;flex-direction:column;flex:1;min-height:0}
+.desktop-performance .sidebar{display:block;width:100%;padding:4px 12px;flex-shrink:0;border:0;border-bottom:1px solid var(--line)}
 .desktop-performance .sidebar>.section-label,.desktop-performance .sidebar-bottom{display:none}
 .desktop-performance #tracks{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:4px}
-.desktop-performance #tracks .track{min-width:0;min-height:0;height:30px;display:flex;align-items:center;justify-content:space-between;padding:5px 8px;margin:0;gap:4px;border:1px solid transparent;border-radius:2px}
+.desktop-performance #tracks .track{display:flex;align-items:center;justify-content:space-between;min-width:0;min-height:0;height:28px;padding:4px 7px;margin:0;gap:4px;border:1px solid transparent;border-radius:4px}
 .desktop-performance #tracks .track>span:nth-child(2){display:none}
 .desktop-performance #tracks .track-index{font:12px var(--mono)}
-.desktop-performance #tracks .track-light{display:block;position:static;width:7px;height:7px;border-radius:50%;background:var(--hardware-led,transparent);box-shadow:0 0 0 1px var(--line)}
-.desktop-performance #tracks .track.hardware-current{border-color:var(--text);background:var(--paper);color:var(--text)}
+.desktop-performance #tracks .track-light{display:block;position:static;width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--hardware-led,transparent);box-shadow:0 0 0 1px var(--line)}
+.desktop-performance #tracks .track.hardware-current{border-color:var(--accent);background:var(--paper);color:var(--accent)}
 .desktop-performance #tracks .track.active:not(.hardware-current){background:transparent;color:var(--muted)}
-.desktop-performance .app-shell>main{padding:0 14px;max-width:none;width:100%;min-width:0}
+.desktop-performance #tracks .track-mute{flex:0 0 auto}
+.desktop-performance .track-mute-short{display:inline}
+.desktop-performance #tracks .track .track-mute-full{display:none}
+.desktop-performance .app-shell>main{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;max-width:none;width:100%;padding:0 12px}
 .desktop-performance .app-shell>main>:not(.live-panel):not(#message){display:none}
-.desktop-performance .live-panel{margin:0;border:0;position:relative}
-.desktop-performance .live-heading{gap:8px;flex-wrap:wrap;padding:7px 0;min-height:30px;padding-right:220px}
-.desktop-performance .live-heading .section-label,.desktop-performance .live-mode-label,.desktop-performance #harmony-open,.desktop-performance .follow-control{display:none}
-.desktop-performance #live-status{font-size:10px}
-.temp-help{display:none}
-.desktop-performance .temp-panel{position:absolute;right:0;top:0;z-index:5;padding:6px 0;background:var(--paper);border:0;max-width:100%}
-.desktop-performance .temp-heading{gap:6px;font-size:10px}
-.desktop-performance .temp-light{width:6px;height:6px}
-.desktop-performance .temp-panel:not([data-temp=active]):not([data-temp=queued]) .temp-light{background:var(--muted)}
-.desktop-performance .temp-help{display:inline-block;font:10px var(--mono);padding:1px 5px;border-color:var(--line)}
-.desktop-performance .temp-caption,.desktop-performance .temp-panel:not(.temp-expanded)>:not(.temp-heading){display:none}
-.desktop-performance .temp-expanded{max-width:390px;padding:10px;border:1px solid var(--line);box-shadow:0 5px 15px #0001}
-.desktop-performance .temp-expanded p{font-size:11px}
-.desktop-performance .temp-shortcuts{gap:8px;font-size:10px}
-.desktop-performance #live-content{display:grid;grid-template-columns:140px minmax(0,1fr);gap:0 16px;align-items:start}
+.desktop-performance .live-panel{display:flex;flex-direction:column;flex:1;min-height:0;margin:0;border:0}
+.desktop-performance .live-heading{padding:4px 0;font-size:10px;flex-shrink:0;min-height:0}
+.desktop-performance .live-heading:has(+.temp-panel[hidden]){min-height:0}
+.desktop-performance .live-heading>:not(#live-status){display:none}
+.desktop-performance .live-heading:has(~#live-content:not([hidden])){display:none}
+.desktop-performance #live-content{display:flex;flex-direction:column;flex:1;min-height:0;overflow:auto;scrollbar-gutter:stable}
 .desktop-performance #live-content[hidden]{display:none}
-.desktop-performance .live-readouts{grid-column:1;grid-row:1 / span 4;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 0;border:0}
-.desktop-performance .live-readouts .transport-readout{grid-column:1/-1}
-.desktop-performance .live-readouts strong{font-size:15px}
-.desktop-performance .live-readouts label{font-size:8px}
-.desktop-performance #live-scale{grid-column:1;grid-row:5;margin:0;padding:4px 0;font-size:10px}
-.desktop-performance #live-scale[open]{grid-column:1/-1;grid-row:6}
-.desktop-performance #live-chord-mode{grid-column:2;grid-row:1}
-.desktop-performance .live-euclid-settings{grid-column:2;grid-row:1;padding:6px 0;border:0}
-.desktop-performance .rhythm-edit-row{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.desktop-performance .performance-navigation{display:block;position:sticky;top:0;z-index:5;flex-shrink:0;background:var(--paper)}
+.desktop-performance .live-readouts{display:flex;align-items:center;gap:20px;flex-wrap:wrap;border:0;border-bottom:1px solid var(--line);padding:7px 0;flex-shrink:0}
+.desktop-performance .live-readouts>div{display:flex;align-items:baseline;gap:7px;min-width:0}
+.desktop-performance .live-readouts>div:nth-child(2),.desktop-performance .live-readouts>div:nth-child(4){display:none}
+.desktop-performance .live-readouts label{font:9px var(--mono);margin:0;color:var(--muted)}
+.desktop-performance .live-readouts strong{font:500 12px var(--sans);white-space:nowrap}
+.desktop-performance .live-readouts .transport-readout{margin-right:auto;align-items:center}
+.desktop-performance #performance-tabs{display:flex;align-items:center;gap:4px;flex-shrink:0;padding:5px 0;border-bottom:1px solid var(--line)}
+.desktop-performance #performance-tabs button{padding:5px 12px;font-size:11px;border:0;border-radius:4px;color:var(--muted);background:transparent}
+.desktop-performance #performance-tabs [aria-selected=true]{background:var(--ink);color:var(--paper)}
+.desktop-performance #performance-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.desktop-performance #performance-tabs [hidden]{display:none}
+.desktop-performance #live-euclid-settings{padding:9px 0;border:0;flex-shrink:0}
+.desktop-performance .rhythm-edit-row{grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
 .desktop-performance .rhythm-field-title{font-size:10px}
-.desktop-performance .rhythm-field-value input,.desktop-performance .rhythm-field-value select{font-size:16px}
+.desktop-performance .rhythm-field-title kbd{font-size:8px;padding:1px 4px}
+.desktop-performance .rhythm-field-value{margin-top:3px}
+.desktop-performance .rhythm-field-value input,.desktop-performance .rhythm-field-value select{font-size:17px;padding:2px 0}
 .desktop-performance .rhythm-results,.desktop-performance .rhythm-live-help{display:none}
-.desktop-performance .hardware-rhythm,.desktop-performance .hardware-rhythm.without-palette{grid-column:2;grid-row:2 / span 4;display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;padding:4px 0;margin:0}
-.desktop-performance .hardware-rhythm>div:first-child{grid-column:1;grid-row:1;width:140px;max-width:140px}
-.desktop-performance .hardware-rhythm>div:nth-child(2){grid-column:2;grid-row:1;min-width:0}
-.desktop-performance .hardware-orbit-caption,.desktop-performance .live-caption,.desktop-performance #live-step-caption{display:none}
-.desktop-performance .hardware-rhythm #live-palette{grid-column:1/-1;grid-row:2}
-.desktop-performance #live-palette:not(.capturing){margin:0}
-.desktop-performance #live-steps,.desktop-performance .hardware-rhythm #live-steps.melodic-steps{grid-template-columns:repeat(8,minmax(0,1fr));gap:3px}
-.desktop-performance #live-steps .live-step,.desktop-performance .hardware-rhythm #live-steps.melodic-steps .live-step{padding:4px;min-height:28px;font-size:9px;gap:2px}
-.desktop-performance #live-bar{font-size:8px}
-.desktop-performance .live-notes{gap:12px;margin-top:6px;flex-wrap:wrap}
-.desktop-performance .live-notes .section-label{font-size:8px}
-.desktop-performance .live-notes span{font-size:10px}
-.desktop-performance #message:empty{display:none}
-.desktop-performance #message{font-size:10px;margin:4px 0}
-body.desktop-performance.cc-dock-open{padding-bottom:0}
-.desktop-performance #cc-dock{position:static!important;width:auto!important;grid-column:2;grid-row:1 / span 5;max-height:none;overflow:visible;box-shadow:none;border:0;padding:6px 0;background:var(--paper)}
-.desktop-performance[data-live-mode=cc] .hardware-rhythm,.desktop-performance[data-live-mode=cc] #live-euclid-settings,.desktop-performance[data-live-mode=cc] #live-chord-mode{display:none}
-.desktop-performance .cc-slots{grid-template-columns:repeat(8,minmax(0,1fr))}
-.desktop-performance .cc-slot{padding:4px}
-.desktop-performance .cc-dock-heading>div{gap:8px}
-.desktop-performance .cc-gesture{font-size:10px;margin:6px 0}
-@media(max-width:800px){.desktop-performance #live-content{grid-template-columns:105px minmax(0,1fr);gap:10px}.desktop-performance .rhythm-edit-row{grid-template-columns:repeat(3,minmax(0,1fr))}.desktop-performance .hardware-rhythm,.desktop-performance .hardware-rhythm.without-palette{grid-template-columns:110px minmax(0,1fr);gap:8px}.desktop-performance .hardware-rhythm>div:first-child{width:110px;max-width:110px}.desktop-performance #live-steps,.desktop-performance .hardware-rhythm #live-steps.melodic-steps{grid-template-columns:repeat(4,minmax(0,1fr))}.desktop-performance .cc-slots{grid-template-columns:repeat(4,minmax(0,1fr))}.desktop-performance #tracks .track{padding:5px 4px}.desktop-performance #tracks .track-index{font-size:10px}}
+.desktop-performance .hardware-rhythm,.desktop-performance .hardware-rhythm.without-palette{display:grid;grid-template-columns:140px minmax(0,1fr);gap:12px;margin:0;padding:0 0 10px;background:transparent;min-width:0;flex:1}
+.desktop-performance .hardware-rhythm>div:first-child{grid-column:1;grid-row:1;width:100%;max-width:140px;align-self:start;background:var(--ink);border-radius:6px}
+.desktop-performance .hardware-rhythm>div:nth-child(2){grid-column:2;grid-row:1;min-width:0;width:100%;background:var(--ink);color:var(--paper);border-radius:6px;padding:8px}
+.desktop-performance .hardware-rhythm .live-sequence{display:block;padding:0}
+.desktop-performance #live-steps,.desktop-performance .hardware-rhythm #live-steps.melodic-steps{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;padding:0}
+.desktop-performance #live-steps .live-step,.desktop-performance .hardware-rhythm #live-steps.melodic-steps .live-step{display:flex;align-items:flex-start;justify-content:center;min-height:38px;padding:5px;gap:2px;font-size:10px}
+.desktop-performance #live-steps .live-step strong{font:500 11px/1.3 var(--mono)}
+.desktop-performance #live-steps .live-step small{font-size:8px}
+.desktop-performance #live-steps .step-override{display:none}
+.desktop-performance #live-steps .live-step button{font-size:8px;line-height:1.1;padding:2px 4px;margin-top:0}
+.desktop-performance #live-bar{display:block;margin:6px 0 0;font:8px var(--mono);color:#b8c2a8}
+.desktop-performance .hardware-orbit-caption,.desktop-performance #live-step-caption,.desktop-performance .live-caption,.desktop-performance .live-notes{display:none}
+.desktop-performance #live-chord-mode{margin:0;padding:8px 0;flex-shrink:0}
+.desktop-performance #live-scale,.desktop-performance #live-variation{margin:0;padding:12px 0;border:0;flex-shrink:0;min-width:0}
+.desktop-performance #live-scale>summary,.desktop-performance #live-variation>summary{display:none}
+.desktop-performance .scale-body{padding-top:0}
+.desktop-performance .variation-body{padding:0;max-width:none}
+.desktop-performance .variation-status{margin:0 0 12px}
+.desktop-performance .variation-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.desktop-performance .hardware-rhythm #live-palette{grid-column:1/-1;grid-row:auto;width:100%;padding:12px 0;margin:0;border:0;background:transparent;color:var(--text)}
+.desktop-performance #live-palette .palette-heading{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.desktop-performance #live-palette .palette-heading h3,.desktop-performance #live-palette .palette-heading .palette-status{margin:0}
+.desktop-performance #live-palette .palette-slots-title{display:none}
+.desktop-performance #live-palette .palette-slots{margin-top:8px}
+.desktop-performance #live-palette h3{font-size:15px;margin:0 0 4px}
+.desktop-performance #live-palette h4{margin:10px 0 6px;font:10px var(--mono)}
+.desktop-performance #live-palette .palette-status{font:10px var(--mono);margin:0 0 10px}
+.desktop-performance #live-palette .palette-slots{grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.desktop-performance #live-palette .palette-slot{min-width:0;padding:8px;gap:5px;background:#e8ebdf;border:1px solid var(--line);border-radius:5px;color:var(--text)}
+.desktop-performance #live-palette .palette-slot.current{border-color:var(--accent);box-shadow:inset 0 -2px var(--accent)}
+.desktop-performance #live-palette .palette-slot strong{font-size:20px}
+.desktop-performance #live-palette .palette-slot small{font:9px var(--mono)}
+.desktop-performance #live-palette .palette-slot span{font:10px var(--mono)}
+.desktop-performance #live-palette .palette-slot button{font-size:10px;padding:4px}
+.desktop-performance #live-palette .palette-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.desktop-performance #live-palette .palette-modes{flex:1;min-width:260px;max-width:560px;margin:0}
+.desktop-performance #live-palette .palette-capture-mode{margin:0}
+.desktop-performance #live-palette .palette-capture-mode button{padding:5px 8px;font-size:11px}
+.desktop-performance #live-palette .palette-modes button{padding:6px;font-size:11px}
+.desktop-performance #live-palette .palette-capture-mode{justify-content:flex-start;gap:6px}
+.desktop-performance #live-palette .palette-capture-mode small{margin-right:6px}
+.desktop-performance #live-palette .palette-modifiers{font-size:9px;margin:6px 0}
+.desktop-performance #live-palette .palette-quality-row{grid-template-columns:repeat(auto-fit,minmax(115px,1fr))}
+.desktop-performance[data-performance-pane=rhythm] #live-palette,.desktop-performance[data-performance-pane=rhythm] #live-scale,.desktop-performance[data-performance-pane=rhythm] #live-variation{display:none!important}
+.desktop-performance:not([data-performance-pane=rhythm]) #live-euclid-settings,.desktop-performance:not([data-performance-pane=rhythm]) #live-chord-mode{display:none!important}
+.desktop-performance:not([data-performance-pane=rhythm]) .hardware-rhythm>div:first-child{display:none}
+.desktop-performance:not(:is([data-performance-pane=rhythm],[data-performance-pane=palette])) .hardware-rhythm>div:nth-child(2){display:none}
+.desktop-performance:not([data-performance-pane=palette]) #live-palette{display:none!important}
+/* Palette editing keeps the projected hits beside an independently scrolling editor. */
+.desktop-performance[data-performance-pane=palette] #live-content{overflow:hidden}
+.desktop-performance[data-performance-pane=palette] .hardware-rhythm{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:12px;flex:1;min-height:0;grid-template-rows:minmax(0,1fr);padding:8px 0}
+.desktop-performance[data-performance-pane=palette] .hardware-rhythm>div:nth-child(2){grid-column:1;grid-row:1;min-height:0;overflow:auto;align-self:stretch}
+.desktop-performance[data-performance-pane=palette] .hardware-rhythm #live-palette{grid-column:2;grid-row:1;min-height:0;align-self:stretch;overflow:auto;padding:0 8px 8px 0;scrollbar-gutter:stable}
+.desktop-performance[data-performance-pane=palette] .hardware-rhythm #live-steps.melodic-steps{grid-template-columns:repeat(8,minmax(0,1fr))}
+.desktop-performance[data-performance-pane=palette] #live-steps .live-step{min-width:0}
+.desktop-performance[data-performance-pane=palette] #live-steps strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desktop-performance[data-performance-pane=palette] #live-steps .live-step button{display:none}
+.desktop-performance[data-performance-pane=palette] #live-palette .palette-slots{grid-template-columns:repeat(4,minmax(0,1fr))}
+.desktop-performance[data-performance-pane=palette] #live-step-caption{display:block;font:9px/1.4 var(--mono);color:#b8c2a8;margin:8px 0 0}
+.desktop-performance[data-performance-pane=palette] .hardware-rhythm #live-palette .palette-heading{gap:4px 12px}
+@media(max-width:800px){
+ .desktop-performance[data-performance-pane=palette] .hardware-rhythm{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+ .desktop-performance[data-performance-pane=palette] .hardware-rhythm>div:nth-child(2){max-height:130px}
+ .desktop-performance[data-performance-pane=palette] .hardware-rhythm #live-palette{grid-column:1;grid-row:2}
+}
 
+.desktop-performance:is([data-performance-pane=scale],[data-performance-pane=variation]) .hardware-rhythm{display:none}
+.desktop-performance:not([data-performance-pane=scale]) #live-scale,.desktop-performance:not([data-performance-pane=variation]) #live-variation{display:none!important}
 .desktop-performance:not([data-live-mode=euclid]) #live-euclid-settings{display:none}
-/* Low-height DAW companion: one toolbar, one track row, one instrument area. */
-.desktop-performance>header{display:none}
-.desktop-performance .desktop-toolbar{position:relative;min-height:30px;padding:4px 12px;gap:7px;flex-wrap:wrap}
-.desktop-performance .desktop-toolbar>span:first-child{font:600 20px var(--sans,sans-serif);letter-spacing:-1px;color:var(--text);margin-right:3px}
-.desktop-performance .desktop-toolbar .connection{margin-left:auto;margin-right:0;font-size:9px;letter-spacing:0}
-.desktop-performance .desktop-toolbar button{font-size:10px;padding:3px 7px}
-.desktop-performance .desktop-toolbar #manual-open kbd{display:none}
-.desktop-performance .desktop-toolbar .temp-panel{position:relative;padding:0;margin:0 0 0 4px;max-width:210px}
-.desktop-performance .temp-heading{font-size:9px;gap:5px}
-.desktop-performance .desktop-toolbar .temp-expanded{position:absolute;top:32px;right:8px;max-width:360px;padding:10px;border:1px solid var(--line)}
-.desktop-performance .sidebar{padding:3px 12px}
-.desktop-performance #tracks .track{height:25px;padding:3px 6px}
-.desktop-performance .app-shell>main{padding:0 12px}
-.desktop-performance .live-heading{padding:2px 0;min-height:14px}
-.desktop-performance #live-status{font-size:9px}
-.desktop-performance #live-content{grid-template-columns:115px minmax(0,1fr);gap:0 12px}
-.desktop-performance .live-readouts{gap:7px;padding:6px 0}
-.desktop-performance .live-readouts>div:nth-child(3),.desktop-performance .live-readouts>div:nth-child(4){display:none}
-.desktop-performance .live-readouts strong{font-size:13px}
-.desktop-performance .live-euclid-settings{padding:2px 0}
-.desktop-performance .rhythm-field-title{font-size:9px}
-.desktop-performance .rhythm-field-value input,.desktop-performance .rhythm-field-value select{font-size:13px;padding:1px 0}
-.desktop-performance .hardware-rhythm,.desktop-performance .hardware-rhythm.without-palette{grid-template-columns:100px minmax(0,1fr);gap:8px;padding:0}
-.desktop-performance .hardware-rhythm>div:first-child{width:100px;max-width:100px}
-.desktop-performance .live-notes{display:none}
-.desktop-performance #live-steps .live-step,.desktop-performance .hardware-rhythm #live-steps.melodic-steps .live-step{min-height:23px;padding:3px;gap:1px}
-.desktop-performance #live-scale{padding:0;font-size:9px}
-.desktop-performance #message:not(.error){display:none}
-.desktop-performance .cc-dock-body{padding-top:5px}
-.desktop-performance .cc-slot{padding:3px}
-.desktop-performance .cc-knob{width:44px;height:44px}
-.desktop-performance .cc-gesture{margin:3px 0;font-size:9px}
-@media(max-width:800px){.desktop-performance .desktop-toolbar .connection{display:none}.desktop-performance .desktop-toolbar .temp-panel{margin-left:auto}.desktop-performance #live-content{grid-template-columns:95px minmax(0,1fr)}.desktop-performance .hardware-rhythm,.desktop-performance .hardware-rhythm.without-palette{grid-template-columns:90px minmax(0,1fr)}.desktop-performance .hardware-rhythm>div:first-child{width:90px;max-width:90px}}
-/* Let the radial span the parameter and step rows, using the strip's spare height. */
-@media(min-width:801px){
- .desktop-performance #live-content{--strip-orbit-size:clamp(120px,calc(100dvh - 96px),200px);grid-template-columns:115px var(--strip-orbit-size) minmax(0,1fr)}
- .desktop-performance .hardware-rhythm,.desktop-performance .hardware-rhythm.without-palette{display:contents}
- .desktop-performance .hardware-rhythm>div:first-child{grid-column:2;grid-row:1 / span 5;width:var(--strip-orbit-size);max-width:none;align-self:start;background:#20261c}
- .desktop-performance .hardware-rhythm>div:nth-child(2){grid-column:3;grid-row:2 / span 4;background:#20261c}
- .desktop-performance #live-euclid-settings,.desktop-performance #live-chord-mode{grid-column:3}
- .desktop-performance .hardware-rhythm #live-palette{grid-column:2/-1;grid-row:6}
- .desktop-performance #cc-dock{grid-column:2/-1}
- .desktop-performance[data-live-mode=cc] .hardware-rhythm{display:none}
+.desktop-performance #cc-dock{position:static!important;width:100%!important;max-height:none;overflow:visible;box-shadow:none;border:0;background:var(--paper);flex-shrink:0}
+.desktop-performance[data-live-mode=cc] #performance-tabs,.desktop-performance[data-live-mode=cc] .hardware-rhythm,.desktop-performance[data-live-mode=cc] #live-euclid-settings,.desktop-performance[data-live-mode=cc] #live-chord-mode,.desktop-performance[data-live-mode=cc] #live-scale,.desktop-performance[data-live-mode=cc] #live-variation{display:none!important}
+.desktop-performance #message{flex-shrink:0;font-size:11px;margin:4px 0}
+.desktop-performance #message:empty{display:none}
+.desktop-performance [hidden]{display:none!important}
+@media(min-width:801px) and (max-height:360px){
+ .desktop-performance .live-readouts{padding:4px 0}
+ .desktop-performance #performance-tabs{padding:3px 0}
+ .desktop-performance #performance-tabs button{padding:3px 10px}
+ .desktop-performance #live-euclid-settings{padding:5px 0}
+ .desktop-performance .rhythm-field-value input,.desktop-performance .rhythm-field-value select{font-size:14px}
+ .desktop-performance .hardware-rhythm,.desktop-performance .hardware-rhythm.without-palette{grid-template-columns:96px minmax(0,1fr)}
+ .desktop-performance .hardware-rhythm>div:first-child{max-width:96px}
+ .desktop-performance #live-steps .live-step,.desktop-performance .hardware-rhythm #live-steps.melodic-steps .live-step{min-height:30px;padding:3px}
+ .desktop-performance .hardware-rhythm>div:nth-child(2){padding:6px}
 }
-
-@media(min-width:801px){
- .desktop-performance #live-content{grid-template-rows:auto repeat(4,minmax(0,1fr));height:var(--strip-orbit-size)}
- .desktop-performance .hardware-rhythm>div:nth-child(2){align-self:stretch;display:flex;flex-direction:column;min-height:0}
- .desktop-performance:not([data-live-mode=euclid]):not([data-live-mode=chord]) .hardware-rhythm>div:nth-child(2){grid-row:1 / span 5}
- .desktop-performance .hardware-rhythm .live-sequence{flex:1;display:flex;flex-direction:column;align-items:stretch;gap:4px;padding:0 0 6px;min-height:0}
- .desktop-performance #live-steps{flex:1;grid-template-rows:repeat(2,minmax(0,1fr))}
- .desktop-performance #live-steps .live-step{justify-content:center;font-size:11px}
+@media(max-width:800px){
+ .desktop-performance .desktop-toolbar{gap:5px;padding:5px 8px;flex-wrap:wrap}
+ .desktop-performance .desktop-toolbar .connection{display:none}
+ .desktop-performance .desktop-toolbar .temp-panel{margin-left:auto}
+ .desktop-performance #tracks .track{padding:4px 3px;gap:2px}
+ .desktop-performance #tracks .track-index{font-size:10px}
+ .desktop-performance .live-readouts{gap:12px}
+ .desktop-performance .live-readouts>div:nth-child(3){display:none}
+ .desktop-performance .rhythm-edit-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+ .desktop-performance .hardware-rhythm,.desktop-performance .hardware-rhythm.without-palette{grid-template-columns:110px minmax(0,1fr)}
+ .desktop-performance #live-steps,.desktop-performance .hardware-rhythm #live-steps.melodic-steps{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .desktop-performance #live-palette .palette-slots{grid-template-columns:repeat(4,minmax(0,1fr))}
+ .desktop-performance .variation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .desktop-performance #performance-tabs button{padding-inline:10px}
 }
-
-@media(min-width:801px){
- .desktop-performance .live-readouts{gap:4px;padding:3px 0}
- .desktop-performance .live-readouts strong{font-size:11px;white-space:nowrap;line-height:1.2}
- .desktop-performance .live-readouts label{font-size:7px;margin-bottom:3px}
- .desktop-performance #live-scale:not([open]){align-self:end;min-width:0;overflow:hidden}
- .desktop-performance #live-scale:not([open]) summary{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:9px}
-}
-
 /* Sixteen CC controls in two short rows, retaining their circular meters. */
-.desktop-performance #cc-dock{padding:0;align-self:start}
+.desktop-performance #cc-dock{padding:0;align-self:stretch}
 .desktop-performance .cc-dock-heading{gap:6px;min-height:20px}
 .desktop-performance .cc-dock-heading>div{gap:8px;flex-wrap:nowrap;min-width:0}
 .desktop-performance .cc-target{font-size:11px;white-space:nowrap}
@@ -158,25 +183,51 @@ body.desktop-performance.cc-dock-open{padding-bottom:0}
 @media(max-width:800px){
  .desktop-performance[data-live-mode=cc] .live-readouts,.desktop-performance[data-live-mode=cc] #live-scale{display:none}
  .desktop-performance[data-live-mode=cc] #cc-dock{grid-column:1/-1}
- .desktop-performance .cc-slot{padding:2px;gap:0 1px;grid-template-columns:minmax(0,1fr) 26px}
+ .desktop-performance[data-live-mode=cc] .desktop-toolbar{padding-block:3px;gap:3px}
+ .desktop-performance[data-live-mode=cc] .temp-heading strong{font-size:11px}
+ .desktop-performance .cc-slot{padding:1px;gap:0 1px;grid-template-rows:14px 14px auto;grid-template-columns:minmax(0,1fr) 26px}
  .desktop-performance .cc-knob{width:26px;height:26px;align-self:center}
  .desktop-performance .cc-knob-face{inset:4px}
 }
+.desktop-performance .desktop-toolbar .project-health{margin:0;position:relative;border:0;background:transparent;min-width:0;flex-shrink:1}
+.desktop-performance .project-health summary{padding:4px;gap:5px}
+.desktop-performance .project-health summary strong{font-size:10px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desktop-performance .project-health summary span{display:none}
+.desktop-performance .project-health[open] .project-health-body{position:fixed;z-index:30;top:43px;right:10px;width:min(380px,calc(100vw - 20px));max-height:calc(100vh - 55px);overflow:auto;padding:12px;background:var(--paper);border:1px solid var(--line);box-shadow:0 8px 25px #0002;border-radius:5px}
+@media(max-width:800px){.desktop-performance .project-health summary strong{max-width:85px;font-size:9px}}
 
-@media(max-width:800px){
- .desktop-performance .desktop-toolbar{gap:4px;padding:4px 8px;flex-wrap:nowrap}
- .desktop-performance .desktop-toolbar>span:first-child{font-size:18px}
- .desktop-performance .desktop-toolbar button{font-size:9px;padding:3px 4px;white-space:nowrap}
- .desktop-performance .desktop-toolbar .temp-heading{font-size:9px;gap:3px;white-space:nowrap}
- .desktop-performance .cc-dock-heading .eyebrow{font-size:7px;letter-spacing:0;white-space:nowrap}
- .desktop-performance .cc-status{max-width:180px}
- .desktop-performance .cc-slot{grid-template-rows:13px 13px auto}
- .desktop-performance .cc-slot small{line-height:8px}
+/* Wide, low strip leaves the DAW mixer visible above it. */
+@media(min-width:1000px){
+ .desktop-performance .performance-navigation{display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--line)}
+ .desktop-performance #performance-tabs{order:0;border:0;padding:3px 0}
+ .desktop-performance .live-readouts{order:1;margin-left:auto;border:0;padding:3px 0;gap:16px;flex-wrap:nowrap}
+ .desktop-performance .live-readouts>div:nth-child(3){display:none}
+ .desktop-performance .desktop-toolbar{padding-block:3px;min-height:30px}
+ .desktop-performance .temp-heading strong{font-size:11px}
+ .desktop-performance .sidebar{padding-block:2px}
+ .desktop-performance #tracks .track{height:24px;padding-block:2px}
+ .desktop-performance #live-euclid-settings{padding:4px 0}
+ .desktop-performance .hardware-rhythm #live-steps.melodic-steps .live-step{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-rows:auto auto;align-content:center;min-height:38px;gap:2px 4px}
+ .desktop-performance #live-steps .live-step>small{grid-column:1;grid-row:1}
+ .desktop-performance #live-steps .live-step>strong{grid-column:2/-1;grid-row:1;min-width:0}
+ .desktop-performance #live-steps .step-palette-slot{grid-column:1;grid-row:2;font-size:8px;line-height:1.2}
+ .desktop-performance #live-steps .live-step>button{grid-column:2/-1;grid-row:2;justify-self:start}
+ .desktop-performance .rhythm-field{display:flex;align-items:center;gap:10px}
+ .desktop-performance .rhythm-field-title{gap:6px;flex-shrink:0}
+ .desktop-performance .rhythm-field-value{margin:0;flex:1;min-width:0}
+ .desktop-performance .rhythm-field-value input,.desktop-performance .rhythm-field-value select{font-size:13px;padding:2px 0}
+ .desktop-performance[data-performance-pane=palette] .hardware-rhythm{grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr)}
+ .desktop-performance[data-performance-pane=palette] #live-palette .palette-slots{grid-template-columns:repeat(8,minmax(0,1fr))}
+ .desktop-performance[data-performance-pane=palette] #live-palette .palette-controls{flex-wrap:nowrap;gap:8px}
+ .desktop-performance[data-performance-pane=palette] #live-palette .palette-modes{min-width:200px}
+ .desktop-performance[data-performance-pane=palette] #live-palette .palette-heading{display:none}
+ .desktop-performance[data-performance-pane=palette] #live-palette .palette-slot{padding:5px;gap:3px}
+ .desktop-performance[data-performance-pane=palette] #live-palette .palette-slot strong{font-size:17px}
 }
 
-.desktop-performance #tracks .track-light{flex:0 0 7px}
-.desktop-performance #tracks .track-mute{flex:0 0 auto}
-@media(max-width:800px){.desktop-performance #tracks .track{gap:2px;padding:4px 3px}.desktop-performance #tracks .track-index{font-size:9px}.desktop-performance #tracks .track-light{width:6px;height:6px;flex-basis:6px}.desktop-performance #tracks .track-mute{font-size:8px}}
+#palette-rhythm-summary{display:none}
+.desktop-performance[data-performance-pane=palette] #palette-rhythm-summary{display:block;font:10px var(--mono);color:#c5ccb8;margin:0 0 7px}
 
-.desktop-performance .track-mute-short{display:inline}
-.desktop-performance #tracks .track .track-mute-full{display:none}
+.desktop-performance #live-palette .palette-slot .palette-select{padding:0;border:0;background:transparent;line-height:1.15}
+#palette-selection-status{display:none}
+.desktop-performance[data-performance-pane=palette] #palette-selection-status{display:block;color:#e6c5ff;font:9px var(--mono);margin:-3px 0 6px}

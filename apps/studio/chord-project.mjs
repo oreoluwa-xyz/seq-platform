@@ -1,6 +1,6 @@
 import {scaleNotes,scaleNames} from './scale.mjs?v=bcc8228f15';
-import {decodeModule,encodeModule,defaultModule,composeModule} from './module.mjs?v=08f7f2e951';
-import {chordLabel,scaleChordTypes,scaleChordNotes} from './chord-mode.mjs?v=886590c057';
+import {decodeModule,encodeModule,defaultModule,composeModule} from './module.mjs?v=8c4bcd2da4';
+import {chordLabel,scaleChordTypes,scaleChordNotes} from './chord-mode.mjs?v=e16e3e7465';
 const intervals=[[0,4,7],[0,3,7],[0,3,6],[0,4,8],[0,2,7],[0,5,7],[0,4,7,10],[0,4,7,11],[0,3,7,10],[0,3,6,10]];
 const integer=(n,min,max)=>Number.isInteger(n)&&n>=min&&n<=max;
 export function recipeNotes(c){
@@ -85,7 +85,9 @@ export function decodeChordProject(input,{allowUnowned=false}={}){
     recipes=Array.from({length:size},()=>extra({start:word(),length:word(),root:byte(),type:byte(),velocity:byte(),scaleRoot:byte(),scaleKind:byte(),inversion:version>=2?byte():0}));
   }else if(!allowUnowned)throw Error('This track has no supported chord recipes. Read it for adoption in the workshop.');
   if(bytes[2]!==1||bytes[3]!==0)throw Error('Choose a Melody or Chord track without a drum layer.');
-  const recipeEnd=pos,module=decodeModule(bytes.slice(pos));
+  const recipeEnd=pos;
+  if(bytes[pos]===86){byte();if(byte()!==1)throw Error('Unsupported variation extension.');take(11);}
+  const moduleStart=pos,module=decodeModule(bytes.slice(pos));
   const stored=module.version===2&&module.components?.some(c=>c.id==='rhythm.stored')&&module.components.some(c=>c.id==='pitch.track');
   if(hasRecipes&&!stored)throw Error('Select Chord mode on the keyboard before editing this track.');
   const replacement=defaultModule('euclid');replacement.config.enabled=false;replacement.config.pool=[];
@@ -93,7 +95,7 @@ export function decodeChordProject(input,{allowUnowned=false}={}){
   const owned=recipeEvents(recipes,length),remaining=events.slice();
   for(const e of owned){const i=remaining.findIndex(n=>identity(n)===identity(e));if(i<0)throw Error('Chord recipe disagrees with its recorded notes.');remaining.splice(i,1)}
   if(remaining.some(e=>recipes.some(c=>e.start<c.start+c.length&&e.end>=c.start)))throw Error('Unowned notes overlap a chord recipe.');
-  return {bytes,length,channel:bytes[4],enabled:!!enabled,draft,recipes,events,foreign:remaining,notesStart,notesEnd,recipeStart,recipeEnd,replacementModule,hasRecipes};
+  return {bytes,length,channel:bytes[4],enabled:!!enabled,draft,recipes,events,foreign:remaining,notesStart,notesEnd,recipeStart,recipeEnd,moduleStart,replacementModule,hasRecipes};
 }
 export function encodeChordProject(source,recipes,channel=source.channel){
   if(!integer(channel,0,15))throw Error('Invalid MIDI channel.');
@@ -104,7 +106,7 @@ export function encodeChordProject(source,recipes,channel=source.channel){
   const out=[...source.bytes.slice(0,source.notesStart),events.length];out[4]=channel;
   if(source.replacementModule){out.fill(0,9,33);out[14]=16;out[32]=255;} // Canonical stored rhythm and empty pitch palette.
   for(const e of events)out.push(e.start&255,e.start>>8,e.end&255,e.end>>8,e.pitch,e.velocity);
-  out.push(...source.bytes.slice(source.notesEnd,source.recipeStart),...encodeRecipes(recipes,source.draft),...(source.replacementModule??source.bytes.slice(source.recipeEnd)));
+  out.push(...source.bytes.slice(source.notesEnd,source.recipeStart),...encodeRecipes(recipes,source.draft),...source.bytes.slice(source.recipeEnd,source.moduleStart??source.recipeEnd),...(source.replacementModule??source.bytes.slice(source.moduleStart??source.recipeEnd)));
   return Uint8Array.from(out);
 }
 export function recipeProgression(recipes,length){

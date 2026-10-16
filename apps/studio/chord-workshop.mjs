@@ -1,7 +1,7 @@
-import {decodeChordProject,encodeChordProject,recipeProgression,recipeNotes,conformRecipesToScale,quantizeRecipesToScale,customRecipe,adoptionCandidates,adoptChord,sameScale,setChordScaleFree,quantizeNote} from './chord-project.mjs?v=6c6f346c5c';
-import {deriveNotes,encodeChordTrack,notePatterns} from './harmony.mjs?v=a92972a827';
-import {chordTypes,chordLabel,chordVoices,inversionNames,scaleChordTypes} from './chord-mode.mjs?v=886590c057';
-import {noteName} from './module.mjs?v=08f7f2e951';
+import {decodeChordProject,encodeChordProject,recipeProgression,recipeNotes,conformRecipesToScale,quantizeRecipesToScale,customRecipe,adoptionCandidates,adoptChord,sameScale,setChordScaleFree,quantizeNote} from './chord-project.mjs?v=3aa3001b5b';
+import {deriveNotes,encodeChordTrack,notePatterns} from './harmony.mjs?v=5bc5306d12';
+import {chordTypes,chordLabel,chordVoices,inversionNames,scaleChordTypes} from './chord-mode.mjs?v=e16e3e7465';
+import {noteName} from './module.mjs?v=8c4bcd2da4';
 import {rootNames,scaleNames,scaleNotes} from './scale.mjs?v=bcc8228f15';
 export function setupChordWorkshop(root,{readTrack,install,audition,getGlobalScale=()=>null}){
   let source=null,recipes=[],track=0,available=false,canInvert=false,canCustom=false,canBound=false,working=false,result=null,bytes=null,scalePreview=null,appliedScale=null;

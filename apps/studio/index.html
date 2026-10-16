@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SEQ / Module Studio</title><link rel="stylesheet" href="style.css?v=696f8b03f9"><link rel="stylesheet" href="desktop.css?v=f46d5f4028"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SEQ / Module Studio</title><link rel="stylesheet" href="style.css?v=53f3924284"><link rel="stylesheet" href="desktop.css?v=8ea0fc8717"></head>
 <body>
 <header><a class="brand" href="./"><span class="logo" aria-hidden="true"><i></i><i></i><i></i></span> seq<span class="brand-sub">INSTRUMENT<br>WORKSHOP</span></a><div class="header-right"><span id="connection" class="connection"><i></i> Offline · local drafts</span><button id="sound-mute" class="sound-toggle" aria-label="Mute UI test sound" aria-pressed="false" title="Mute the UI test sound"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4Z"/><path class="sound-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/><path class="sound-cross" d="m16 9 6 6m0-6-6 6"/></svg><span id="sound-state">Sound on</span></button><button id="firmware-open" aria-haspopup="dialog" aria-controls="firmware-dialog">Firmware</button><button id="manual-open" class="manual-trigger" aria-haspopup="dialog" aria-controls="manual-dialog" aria-keyshortcuts="Meta+/ Control+/">Manual <kbd>⌘ /</kbd></button><button id="connect">Connect keyboard <span>↗</span></button></div></header>
 <div class="app-shell">
@@ -10,12 +10,13 @@
 <section class="live-panel" aria-label="Live keyboard state">
 <div class="live-heading"><span class="section-label">HARDWARE / LIVE VIEW</span><label class="live-mode-label">Mode <select id="live-track-mode" disabled aria-label="Hardware track mode"><option value="2">Drum</option><option value="0">Melody</option><option value="1">Chord</option></select></label><button id="harmony-open" class="quiet" disabled>Harmony workshop ↗</button><span id="live-status">Connect to follow your keyboard</span><label class="follow-control"><input id="live-follow" type="checkbox" checked> Sync track selection</label></div>
 <section id="live-temp" class="temp-panel" aria-label="TEMP performance" hidden></section>
+<details id="project-health" class="project-health"></details>
 <div id="live-content" hidden>
 <div class="live-readouts"><div class="transport-readout"><i id="live-led"></i><strong id="live-transport">Stopped</strong><small id="live-record"></small></div><div><label>KEYBOARD TRACK</label><strong id="live-track">01</strong></div><div><label>TRACK TYPE</label><strong id="live-type">Drum</strong></div><div><label>MODULE</label><strong id="live-engine">Euclid</strong></div><div><label id="live-tempo-label">TEMPO</label><strong id="live-tempo">120 <small>BPM</small></strong></div><div><label>POSITION</label><strong id="live-position">1 / 16</strong></div></div>
 <details id="live-scale" hidden></details><section id="live-chord-mode" aria-label="Chord step controls" hidden></section><div id="live-euclid-settings" class="live-euclid-settings" aria-label="Live Euclidean parameters"></div><div class="hardware-rhythm"><div><div id="hardware-orbit" class="rhythm-orbit" aria-label="Live keyboard rhythm"></div><p id="hardware-orbit-caption" class="hardware-orbit-caption">LIVE KEYBOARD · VIEWED 16 STEPS<br>Outer labels: stored notes · Center: sampled sound</p></div><div><div class="live-sequence"><div id="live-steps" aria-label="Hardware step view"></div><span id="live-bar"></span></div>
 <p id="live-step-caption"></p>
 <div class="live-notes"><div><span class="section-label">SELECTED ON KEYBOARD</span><div id="live-selected"></div></div><div><span class="section-label">SOUNDING NOW</span><div id="live-sounding"></div></div></div>
-</div><section id="live-palette" aria-label="Live note palette"></section></div><p class="hint live-caption">Hardware state · the module editor below keeps your local draft.</p>
+</div><section id="live-palette" aria-label="Live note palette"></section></div><details id="live-variation" hidden></details><p class="hint live-caption">Hardware state · the module editor below keeps your local draft.</p>
 </div></section>
 <section class="intro"><div><div class="eyebrow" id="engine-category">HARMONIC INSTRUMENT</div><h1 id="engine-title">Chord bank<span>.</span></h1><p id="engine-subtitle">Twelve voicings, right at your fingertips.</p></div><div class="track-stamp"><span>TRACK</span><strong id="track-display">01</strong></div></section>
 <section class="component-composer" aria-label="Module components"><div class="section-label">HOW THIS TRACK PLAYS <span>TIMING + NOTES</span></div><div class="component-chain"><label>When notes play<select id="component-rhythm"><option value="legacy">Use instrument timing</option><option value="rhythm.stored">Follow recorded steps</option><option value="rhythm.euclid">Euclidean pulses</option></select></label><span aria-hidden="true">+</span><div><label>Which notes play</label><strong id="component-source">Chord bank</strong><small>Choose an instrument below</small></div><span aria-hidden="true">→</span><div><label>Output</label><strong>MIDI to your instrument</strong><small>Uses this track’s MIDI channel</small></div></div><div id="component-palette" class="euclid-controls" hidden><label>Palette offsets<input id="component-pool"></label><label>Root pitch class<input id="component-root" type="number" min="0" max="11"></label><label>Pin slot (0–7, blank cycles)<input id="component-pin" type="number" min="0" max="7"></label></div><p id="component-description" class="hint"></p></section>
@@ -60,6 +61,6 @@
 </div>
 <div class="manual-footer"><span>Open or close with <kbd>⌘ /</kbd> · <kbd>Ctrl /</kbd> on Windows/Linux</span><a href="../MANUAL.md" target="_blank" rel="noopener">Open source manual ↗</a></div>
 </dialog>
-<script type="module" src="app.mjs?v=4e93c6c548"></script>
-<script type="module" src="desktop.mjs"></script>
+<script type="module" src="app.mjs?v=844783ab39"></script>
+<script type="module" src="desktop.mjs?v=bf3dcc4c34"></script>
 </body></html>

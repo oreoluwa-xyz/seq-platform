@@ -52,9 +52,11 @@ The macOS packaging workflow bundles Python, native DFU tooling, the manual, and
 
 ### Performance strip
 
-New windows default to a pinned, 1080 × 270 performance strip centered near the bottom of the display's usable area. Saved window positions and dimensions are retained. Workshop mode remains available from the toolbar.
+New windows default to a pinned, 1440 × 270 performance strip centered near the bottom of the display's usable area. On this upgrade, Performance view resets once to the wide bottom strip so the DAW mixer remains visible above it; subsequent saved sizes are retained. The width is clamped to the display. Performance view can be placed at the screen’s bottom edge, including the Dock-reserved area. Workshop mode remains available from the toolbar.
 
 All 12 tracks stay visible. The selected hardware track is outlined; dots mirror the keyboard's actual F1–F12 LEDs, including its activity and mute feedback, rather than inferring activity from the selected track. Missing or stale telemetry clears the dots.
+
+Rhythm, Palette, Variation and Scale have separate tabs. Rhythm keeps the Euclid controls above the orbit and step grid. Palette keeps the projected 16-step rhythm and palette slot labels beside the notes and chord editor. The palette scrolls independently, so editing chord quality keeps the hits in sight. Select a palette note or chord to highlight its source Euclidean hits and show their count in the viewed bar. Recorded overrides are excluded; assignments are shown before variation. Keyboard capture and palette editing reveal it automatically, while explicit tab choices and clicks survive live polling. Track controls and editor navigation remain available while scrolling.
 
 The strip preserves Studio's circular rhythm display and CC knobs. Euclid controls follow Euclid mode; held or latched CC mode replaces the rhythm area. TEMP is a small status indicator with a `?` disclosure for its shortcuts. The Manual button opens the existing keyboard guide, which follows the hardware mode.
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {verifyFirmware,decodeFirmwareIdentity} from './firmware.mjs';
+import {verifyFirmware,decodeFirmwareIdentity} from './firmware.mjs?v=cdb10208e0';
 function device({flags=63,version=3,short=false,fail=false,identity=null}={}){
   const calls=[];return {calls,async capabilities(){if(fail)throw Error('Offline');},async request(cmd,obj=0,offset=0){
     calls.push([cmd,obj,offset]);if(cmd===24){if(!identity)throw Error('Unsupported command');return identity.slice(offset,offset+64);}const bytes=new Uint8Array(short&&offset===128?12:64);
