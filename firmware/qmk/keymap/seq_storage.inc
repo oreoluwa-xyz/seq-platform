@@ -328,6 +328,18 @@ static void seq_project_track(seq_codec_t *c, uint8_t t) {
         if (ev.step >= SEQ_MAX_STEPS || ev.index >= SEQ_CC_MAPPING_COUNT || ev.value > 127) c->ok = false;
         if (c->apply && c->ok && !seq_automation_record(t, ev.index, ev.step, ev.value)) c->ok = false;
     }
+    /* Optional T/1 gate, independent of the saved lane and melodic mutes.
+     * Absent in older projects and omitted entirely when the gate is off. */
+    bool track_muted = false;
+    if ((!c->read && seq_track_muted[t]) ||
+        (c->read && c->pos < c->size && c->data[c->pos] == 'T')) {
+        seq_codec_u8(c, 'T');
+        uint8_t version = seq_codec_u8(c, 1);
+        uint8_t muted = seq_codec_u8(c, seq_track_muted[t] ? 1 : 0);
+        if (version != 1 || muted > 1) c->ok = false;
+        track_muted = muted == 1;
+    }
+    if (c->read && c->apply && c->ok) seq_track_muted[t] = track_muted;
     bool manual = false;
     if ((!c->read && cc_automation_manual[t]) ||
         (c->read && c->pos < c->size && c->data[c->pos] == 'A')) {

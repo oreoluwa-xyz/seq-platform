@@ -169,7 +169,7 @@ static void seq_cc_snapshot(void) {
                 if (drum_lane_muted[slot_drum_track(slot)][lane]) muted_lanes++;
         }
         bool all_muted = (has_melody || has_drums) && (!has_melody || melody_muted) && (!has_drums || muted_lanes == SEQ_DRUM_NOTE_COUNT);
-        if (all_muted) muted |= 1u << slot;
+        if (seq_track_muted[slot] || all_muted) muted |= 1u << slot;
         else if (melody_muted || muted_lanes) partial |= 1u << slot;
     }
     seq_live_u16(seq_visual_image + 6, muted);

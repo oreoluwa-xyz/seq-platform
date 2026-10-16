@@ -183,7 +183,7 @@ static void seq_variation_frame(uint8_t track, uint16_t step, bool first, bool p
 }
 static void seq_variation_emit(uint8_t track, uint32_t now, bool first) {
     uint8_t output[128] = {0}, attacks[16] = {0};
-    if (!melodic_track_muted[track]) seq_variation_frame(track, seq_track_step_position[track], first, false, output, attacks);
+    if (!seq_track_muted[track] && !melodic_track_muted[track]) seq_variation_frame(track, seq_track_step_position[track], first, false, output, attacks);
     for (uint8_t pitch = 0; pitch < 128; pitch++) {
         bool active = melodic_active_contains(track, pitch), attack = attacks[pitch >> 3] & (1u << (pitch & 7));
         if (active && (!output[pitch] || attack)) {

@@ -87,7 +87,7 @@ export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit
     put('S','Step layout','parameter','Hold Space, tap S, then 1 for the drum 4×4 grid or ` for the default two-row grid. Melody always uses two rows.');
     put('Enter','Save','transport','Space + Enter saves the project on board if it fits. Esc red/amber warns of a failed save; keep a computer backup for large projects.');
     put('Home','Clock source','transport','Space + Home toggles internal MIDI master / DAW follower.');put('Knob','Swing / length','parameter','Space + knob adjusts swing. Ctrl + Space + knob changes the current track length by one step; add Shift for 16 steps. Expansion adds empty space; shortening trims notes and automation beyond the new end.');
-    for(let n=1;n<=12;n++)put(`F${n}`,`Mute ${n}`,'track','While holding Space, double-tap a melodic track to mute/unmute. For drums, tap the drum track then the lane’s track key.');
+    for(let n=1;n<=12;n++)put(`F${n}`,`Mute ${n}`,'track','Shift + Space + this F-key toggles the entire track, including all drum lanes and its melodic layer. Unmuting preserves individual lane/layer mutes. Without Shift, double-tap a melodic track to mute/unmute its melody; for drums, tap the track then the lane’s F-key.');
   }
   if(mode.endsWith('-edit')){
     const labels=mode==='drum-edit'?['Velocity','Ratchets','Spacing']:['Length','Pitch','Velocity'];

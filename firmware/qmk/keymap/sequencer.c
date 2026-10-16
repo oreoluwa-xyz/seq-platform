@@ -182,6 +182,8 @@ typedef struct {
 } seq_ratchet_event_t;
 
 static bool         drum_lane_muted[12][SEQ_DRUM_NOTE_COUNT];
+static bool         seq_track_muted[12];
+static uint16_t     seq_track_mute_keys;
 static bool         drum_pool_full_preview;
 static uint32_t     drum_pool_full_ms;
 /* The first tap deletes a step; a second tap must restore its editor values. */
@@ -2969,8 +2971,27 @@ static void seq_melodic_toggle_mute(uint8_t slot, uint32_t now) {
     seq_mark_dirty();
 }
 
+/* A track gate preserves the underlying lane/layer mute choices. */
+static void seq_track_toggle_mute(uint8_t slot, uint32_t now) {
+    slot %= 12;
+    seq_track_muted[slot] = !seq_track_muted[slot];
+    if (seq_track_muted[slot]) {
+        seq_ratchet_clear_track(slot_drum_track(slot));
+        seq_midi_stop_drum_track(slot_drum_track(slot), now);
+        seq_midi_stop_melodic_track(slot_melodic_track(slot), now);
+    } else {
+        /* Rejoin sustained melodic material at the next running step. */
+        seq_variation_rejoin |= (uint16_t)(1u << slot);
+    }
+    seq_mute_pending_reset();
+    seq_mark_dirty();
+}
+
 static void seq_mute_clear_all(uint32_t now) {
     (void)now;
+    for (uint8_t track = 0; track < 12; track++)
+        if (seq_track_muted[track]) seq_variation_rejoin |= (uint16_t)(1u << track);
+    memset(seq_track_muted, 0, sizeof(seq_track_muted));
     for (uint8_t ch = 0; ch < 12; ch++) {
         for (uint8_t lane = 0; lane < SEQ_DRUM_NOTE_COUNT; lane++) {
             drum_lane_muted[ch][lane] = false;
@@ -3887,6 +3908,7 @@ void seq_mode_on_load(void) {
     seq_palette_toggle_held = false;
     seq_scale_revision = 0;
     seq_ctrl_mask = 0;
+    seq_track_mute_keys = 0;
     seq_ctrl_space_held = seq_ctrl_space_used = seq_ctrl_space_harmony = seq_ctrl_space_ready = false;
     memset(seq_modules, 0, sizeof(seq_modules));
     memset(seq_variations, 0, sizeof(seq_variations));
@@ -3953,6 +3975,7 @@ void seq_mode_on_load(void) {
     memset(drum_note_gate_mask, 0, sizeof(drum_note_gate_mask));
     memset(drum_active_note, 0, sizeof(drum_active_note));
     memset(drum_lane_muted, 0, sizeof(drum_lane_muted));
+    memset(seq_track_muted, 0, sizeof(seq_track_muted));
     seq_drum_pool_reset_mods();
     for (uint8_t track = 0; track < 12; track++) {
         for (uint8_t i = 0; i < SEQ_CC_MAPPING_COUNT; i++) {
@@ -4168,7 +4191,7 @@ static void seq_ratchet_process(uint32_t now) {
         } while (timer_expired32(now, ev->trigger_ms));
         uint8_t channel = ev->channel;
         uint8_t note = ev->note;
-        if (drum_lane_muted[channel][note]) continue;
+        if (seq_track_muted[channel] || drum_lane_muted[channel][note]) continue;
         uint8_t midi_ch = midi_channel_for_track(channel);
         uint8_t midi_note = drum_note_for_track(note);
         if (drum_note_gate_mask[channel] & (1u << note)) virtual_midi_note_off(midi_ch, midi_note, now);
@@ -5742,7 +5765,7 @@ static void seq_melodic_release_base(uint8_t track, uint8_t base, uint32_t now) 
 }
 
 static void seq_melodic_play_note(uint8_t track, uint8_t base, uint8_t velocity, uint16_t step, uint32_t now, bool stored) {
-    if (melodic_track_muted[track]) return;
+    if (seq_track_muted[track] || melodic_track_muted[track]) return;
     uint8_t  note   = base;
     uint16_t hit    = 0;
     int8_t   offset = 0;
@@ -5829,7 +5852,7 @@ static void seq_emit_step(uint32_t now, bool first) {
             if (!seq_drum_step_get(channel, note, local_step)) {
                 continue;
             }
-            if (drum_lane_muted[channel][note]) {
+            if (seq_track_muted[channel] || drum_lane_muted[channel][note]) {
                 continue;
             }
             uint8_t velocity = drum_track_velocity[channel % 12];
@@ -5903,7 +5926,7 @@ static void seq_emit_step(uint32_t now, bool first) {
         mel_event_snapshot_t event;
         for (uint8_t i = 0; i < count; i++) {
             mel_track_event_at(track, i, &event);
-            if (!melodic_track_muted[track] && event.start_step <= step && event.end_step >= step) desired[event.pitch >> 3] |= (uint8_t)(1u << (event.pitch & 7));
+            if (!seq_track_muted[track] && !melodic_track_muted[track] && event.start_step <= step && event.end_step >= step) desired[event.pitch >> 3] |= (uint8_t)(1u << (event.pitch & 7));
         }
         for (uint8_t base = 0; base < 128; base++) {
             if (euclidean || !(desired[base >> 3] & (1u << (base & 7)))) seq_melodic_release_base(track, base, now);
@@ -6390,6 +6413,11 @@ bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
         desktop_shortcut_held = pressed;
         return true;
     }
+    int8_t mute_key = track_from_keycode(keycode);
+    if (mute_key >= 0 && (seq_track_mute_keys & (1u << mute_key))) {
+        if (!pressed) seq_track_mute_keys &= (uint16_t)~(1u << mute_key);
+        return false;
+    }
     if (keycode == KC_ENT) {
         seq_temp_enter_held = pressed;
         if (!pressed) {
@@ -6605,7 +6633,12 @@ bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
                     }
                     int8_t track_key = track_from_keycode(keycode);
                     if (track_key >= 0) {
-                        seq_handle_space_track_press((uint8_t)track_key, now);
+                        if (seq_shift_active() || (get_mods() & (MOD_BIT(KC_LSFT) | MOD_BIT(KC_RSFT)))) {
+                            seq_track_mute_keys |= (uint16_t)(1u << track_key);
+                            seq_track_toggle_mute((uint8_t)track_key, now);
+                        } else {
+                            seq_handle_space_track_press((uint8_t)track_key, now);
+                        }
                         switch_state.consumed = true;
                         return false;
                     }

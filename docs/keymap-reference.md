@@ -152,6 +152,18 @@ Euclid Mode
     region. Add both Shift keys to create blank space instead. Works
     for melodic tracks too.
 
+  Whole-track Mute
+
+  - Hold either Shift + Space and tap F1–F12 once to mute/unmute the
+    entire track, including all drum lanes and any melodic layer.
+  - Individual lane/layer mute choices remain intact when the track comes
+    back in. Focus stays on the current track/lane. Sounding notes and
+    queued drum repeats stop immediately; unmute rejoins on the next step.
+  - Existing Space-only lane/melody mute gestures remain available.
+    Space + Backspace clears both whole-track and individual mutes.
+  - Track mutes persist in project saves/backups and TEMP. Older projects
+    load unmuted at track level; active track-mute backups require updated firmware.
+
   Navigation & Follow
 
   - Hold the sequencer switch (Space) to access navigation controls:

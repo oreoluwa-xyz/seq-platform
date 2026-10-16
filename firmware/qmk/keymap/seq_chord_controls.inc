@@ -45,7 +45,7 @@ static void seq_chord_mode_set(uint8_t track, bool enabled) {
 }
 static void seq_chord_audition(uint8_t track, uint16_t key) {
     seq_module_preview_stop(timer_read32());
-    if (melodic_track_muted[track]) return;
+    if (seq_track_muted[track] || melodic_track_muted[track]) return;
     module_preview.count   = seq_chord_render(&seq_chord_draft[track], module_preview.notes);
     module_preview.track   = track;
     module_preview.channel = midi_channel_for_track(track);

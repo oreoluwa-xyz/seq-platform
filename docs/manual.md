@@ -127,9 +127,14 @@ Hold **Ctrl + Space** and turn the knob: clockwise adds one step, counterclockwi
 4. Bar LEDs show a binary readout of the viewed bar and playhead. The live UI mirrors the hardware’s viewed bar and labels the absolute steps (for example, bar 2 shows steps 17–32). If playback reaches a different bar while the view remains held, the UI shows the playing bar and the Space + F follow shortcut.
 
 **Mutes**
+
+Hold **Shift + Space** and tap **F1–F12 once** to mute/unmute that entire track, including every drum lane and any melodic layer. Either Shift works. This does not change the selected track or lane. Sounding notes and queued drum repeats stop immediately; unmuting rejoins playback on the next step with individual lane/layer mutes preserved. You can still edit individual lane mutes while the track is muted. The live track indicator shows it fully muted while the track mute is active.
+
+Track mutes are saved with the project, included in computer backups and restored by TEMP. Older projects load with track mutes off. Backups with an active track mute need firmware that supports this setting; older firmware rejects the new field. CC automation retains its existing behavior.
+
 1. While holding `Space`, double-tap a melodic track key to mute or unmute it.
 2. For drum tracks, hold `Space`, tap the drum track once, then tap a track key for the lane index you want to mute or unmute.
-3. While holding `Space`, tap `Backspace` to clear all mutes.
+3. While holding `Space`, tap `Backspace` to clear all track, melodic-layer and lane mutes.
 
 **Recording**
 1. Double-tap `PgDn` to arm or disarm note recording. In CC mode, **Shift + PgDn** toggles CC Automation / Manual instead, without changing note-record arming.

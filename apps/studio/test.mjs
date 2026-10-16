@@ -547,6 +547,12 @@ console.log('Chord snapshot validation, whole-group keyboard marks and bank comp
   const withManual=Uint8Array.from([...withLanes.slice(0,laneOffset),65,1,1,...withLanes.slice(laneOffset)]);
   const manualSource=decodeChordProject(withManual);
   assert(sameBytes(encodeChordProject(manualSource,manualSource.recipes),withManual),'Chord editing preserves CC Manual mode');
+  const withGate=Uint8Array.from([...withManual.slice(0,laneOffset),84,1,1,...withManual.slice(laneOffset)]);
+  const gatedSource=decodeChordProject(withGate);
+  assert(sameBytes(encodeChordProject(gatedSource,gatedSource.recipes),withGate),'Chord editing preserves track gate and lane/CC settings');
+  const invalidGate=withGate.slice();invalidGate[laneOffset+2]=2;assert.throws(()=>decodeChordProject(invalidGate),/mute state/);
+  invalidGate.set(withGate);invalidGate[laneOffset+1]=2;assert.throws(()=>decodeChordProject(invalidGate),/mute state/);
+
   const invalidManual=withManual.slice();invalidManual[laneOffset+2]=2;assert.throws(()=>decodeChordProject(invalidManual));
   assert.equal(source.recipes.length,2);assert.deepEqual(recipeNotes(source.recipes[0]),p.chords[0].notes);
   assert(sameBytes(encodeChordProject(source,source.recipes),bytes));
@@ -820,6 +826,7 @@ console.log('Palette source-slot mapping and automatic editor navigation passed.
 {
   const {controlsFor}=await import('./keyboard.mjs?v=11bbe2f648');
   const nav=controlsFor('navigation');
+  for(let n=1;n<=12;n++)assert.match(nav[`F${n}`].detail,/Shift \+ Space.*entire track.*preserves individual/);
   assert.equal(nav.F.label,'Follow');
   assert.match(nav.F.detail,/Space \+ F/);
   assert.equal(nav['='].label,'Double length');

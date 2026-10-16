@@ -70,6 +70,7 @@ export function decodeChordProject(input,{allowUnowned=false}={}){
   const events=Array.from({length:count},()=>({start:word(),end:word(),pitch:byte(),velocity:byte()}));
   if(events.some(e=>!integer(e.start,0,2047)||!integer(e.end,e.start,2047)||e.pitch>127||!integer(e.velocity,1,127)))throw Error('Invalid note event.');
   const notesEnd=pos,cc=word();take(cc*4);
+  if(bytes[pos]===84){byte();if(byte()!==1||byte()>1)throw Error('Unsupported track mute state.');}
   if(bytes[pos]===65){byte();if(byte()!==1||byte()>1)throw Error('Unsupported CC automation mode.');}
   if(bytes[pos]===76){byte();if(byte()!==1)throw Error('Unsupported lane rhythm extension.');const mask=word();if(!mask||mask>4095)throw Error('Invalid lane rhythm mask.');for(let n=0;n<12;n++)if(mask&(1<<n))take(26);}
   if(bytes[pos]===83){byte();if(byte()!==1)throw Error('Unsupported scale extension.');take(4)}

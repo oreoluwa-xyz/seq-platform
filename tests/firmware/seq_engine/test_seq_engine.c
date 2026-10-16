@@ -1186,6 +1186,7 @@ static void test_step_hold(void) {
     test_now+=400;key(k,true);seq_backup_request(1,0,0,NULL,0);key(k,false);assert(!seq_step_hold.active && mel_track_event_count(0)==1);seq_backup_request(7,0,0,NULL,0);
 }
 #include "test_seq_navigation.inc"
+#include "test_seq_track_mute.inc"
 
 static void test_harmony_shortcut(void) {
     reset();seq_enter(test_now);
@@ -2442,6 +2443,9 @@ int main(int argc, char **argv) {
     test_live_rhythm();
     test_live_palette();
     test_mute_summary();
+    test_track_mute_gestures();
+    test_track_mute_playback();
+    test_track_mute_storage();
     test_desktop_shortcut();
     test_palette_pitch_mode();
     test_scale_quantizer();
@@ -2461,5 +2465,5 @@ int main(int argc, char **argv) {
     test_euclid_picked_notes();
     test_transport_restart();
     test_bounded_save();
-    puts("seq_engine: 78 regression groups passed");
+    puts("seq_engine: 81 regression groups passed");
 }
