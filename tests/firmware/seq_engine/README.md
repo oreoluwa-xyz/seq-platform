@@ -37,3 +37,13 @@ using MIDI Stop, Song Position and Continue on a timely straight-grid boundary.
 The host event log cannot establish physical simultaneity. USB delivery,
 receiver support for transport recovery, and audible jitter need hardware
 validation. Neither runner flashes firmware.
+
+Project restore regressions redistribute a full chord-recipe pool, verify byte-exact recorded-chord restoration, and recover after a failed later object. Backup preflight includes the combined recipe limit and refuses older incomplete validation replies before clear. Command 25 regressions compare measured sizes with real serialization, including stale recipes, and check playback, MIDI output, EEPROM writes, edit rollback, transfer scratch, and active TEMP preservation.
+
+Global-loop regressions exercise Enter + encoder across mixed track lengths, byte-identical project encoding, chord/CC/lane preservation, loop wraps, sustained-note re-entry, ratchet cancellation, external-clock phase, TEMP interactions, bounds, busy-state guards and existing Enter actions. The shortcut is a playback overlay, separate from destructive track resizing.
+
+
+Chord palette regressions cover deferred pinning, slot/all quality edits, modifier and release-order cancellation, Euclid+C toggling, fixed and Auto playback, global/local/off scale contexts, recorded overrides and printing, versioned codecs, malformed/truncated data, EEPROM/TEMP restoration, removal alignment, telemetry, and stale UI writes. UI tests round-trip the new contracts through the real C protocol bridge and verify quality labels and scale projections.
+
+
+Variation regressions cover one accumulator advance per chord onset, sustained releases, MIDI-range clamping, probability skips, reverse/rotate/shuffle/random selection, 128-entry permutation coverage, variable-size chord swaps, individual unchanged gates, deterministic scale/palette mutation, read-only projections, stale/all-track edits, queue cancellation and next-bar application, TEMP and EEPROM round trips, malformed extension rejection, C/JS protocol round trips, and chord-workshop extension preservation. The desktop smoke suite checks stable focused fields, stale drafts, scope/timing payloads, queue labels, scale context, track switching, and phone width.

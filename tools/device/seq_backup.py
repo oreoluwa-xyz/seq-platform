@@ -92,18 +92,25 @@ class Connection:
         self.request(2, obj, len(data))
         for offset in range(0, len(data), 32):
             self.request(3, obj, offset, data[offset:offset + 32])
-        return self.request(5 if validate else 4, obj, data=checksum(data))
+        return self.request(5 if validate else 4, obj, 1 if validate else 0, data=checksum(data))
 
     def validate(self, objects):
-        lanes = events = 0
+        lanes = events = chords = 0
+        chord_capacity = None
         for obj, data in enumerate(objects):
             counts = self.upload(obj, data, validate=True)
-            if len(counts) != 3:
+            if len(counts) == 3:
+                raise ValueError('Update keyboard firmware before restoring: complete chord-capacity preflight is unavailable')
+            if len(counts) != 5 or not counts[4] or (chord_capacity is not None and counts[4] != chord_capacity):
                 raise ValueError('Invalid validation response')
             lanes += counts[0]
-            events += int.from_bytes(counts[1:], 'little')
+            events += int.from_bytes(counts[1:3], 'little')
+            chords += counts[3]
+            chord_capacity = counts[4]
         capacity = self.request(9)
-        if lanes > capacity[3] or events > int.from_bytes(capacity[4:6], 'little'):
+        if len(capacity) != 6:
+            raise ValueError('Invalid capacity response')
+        if lanes > capacity[3] or events > int.from_bytes(capacity[4:6], 'little') or chords > chord_capacity:
             raise ValueError('Project exceeds this firmware’s shared capacity')
 
     def restore(self, objects):

@@ -8,12 +8,7 @@ __attribute__((weak)) void seq_melodic_capacity_exceeded(void) {}
 
 __attribute__((weak)) void seq_melodic_notify_changed(void) {}
 
-typedef struct {
-    uint8_t  pitch;
-    uint8_t  velocity;
-    uint16_t start_step;
-    uint16_t end_step;
-} mel_event_t;
+typedef mel_event_snapshot_t mel_event_t;
 
 typedef struct {
     mel_event_t events[MEL_TRACK_MAX_EVENTS];
@@ -26,6 +21,10 @@ static mel_track_t mel_tracks[MEL_TRACK_COUNT];
 static mel_track_t edit_backup;
 static uint8_t     edit_track;
 static bool        edit_active, edit_failed;
+mel_event_snapshot_t *mel_track_snapshot_scratch(void) {
+    return edit_active ? NULL : edit_backup.events;
+}
+
 void               mel_track_edit_begin(uint8_t track) {
     edit_track  = track % MEL_TRACK_COUNT;
     edit_backup = mel_tracks[edit_track];

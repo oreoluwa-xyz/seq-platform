@@ -293,6 +293,14 @@ static bool seq_euclid_any_enabled(void);
 
 static seq_euclid_palette_capture_t euclid_palette_capture = {0};
 static uint16_t seq_lane_selection_used;
+static uint8_t seq_palette_edit_digit = 255, seq_palette_edit_track;
+static bool seq_palette_edit_used;
+static uint16_t seq_palette_digit_held, seq_palette_type_held;
+static bool seq_palette_toggle_held;
+static bool seq_palette_key(uint16_t key, bool pressed);
+static void seq_palette_set_quality(uint8_t track, uint8_t digit, uint8_t type);
+static bool seq_palette_encoder(uint8_t index, bool clockwise);
+static void seq_palette_cancel(void) { seq_palette_edit_digit = 255; }
 static bool seq_palette_replace[12]; /* Capture preference; Add notes on startup. */
 
 typedef struct {
@@ -361,8 +369,19 @@ typedef struct {
     int8_t  direction;
 } seq_accumulator_state_t;
 static seq_accumulator_state_t seq_accumulators[12];
+/* Persistent playback transforms; originals remain available for reset. */
+typedef struct {
+    uint32_t seed;
+    uint8_t order, rotate, mutation, range, voicing, enabled, locked;
+} seq_variation_t;
+static seq_variation_t seq_variations[12], seq_variation_queued[12];
+static uint16_t seq_variation_pending, seq_variation_revision, seq_variation_playing, seq_variation_rejoin;
+static void seq_variation_apply_pending(uint32_t now);
+static void seq_variation_apply_mask(uint16_t mask, uint32_t now);
+static void seq_variation_project(uint8_t track, uint16_t step, uint8_t *notes);
 
-/* One mapping for every possible base pitch; 0xFF means no active output. */
+/* Normal playback maps base to output. Grouped playback reuses this as an
+ * encoded onset-offset cache; 0xFF is unset in either representation. */
 static uint8_t seq_accumulator_active_notes[12][128];
 
 static void seq_accumulator_reset_runtime(uint8_t track);
@@ -374,11 +393,10 @@ static void seq_accumulator_reset_runtime(uint8_t track) {
     acc->run_count = 0;
 }
 
-static uint8_t seq_accumulator_apply(uint8_t track, uint8_t base_note) {
-    if (seq_modules[track % 12].composed || seq_modules[track % 12].kind != SEQ_MODULE_EUCLID) return base_note;
+static int8_t seq_accumulator_next(uint8_t track) {
     seq_accumulator_state_t *acc = &seq_accumulators[track % 12];
     if (!acc->enabled) {
-        return base_note;
+        return 0;
     }
 
     seq_euclid_track_t *euclid = &euclid_tracks[track % 12];
@@ -395,13 +413,6 @@ static uint8_t seq_accumulator_apply(uint8_t track, uint8_t base_note) {
     int8_t offset = 0;
     if (euclid->note_count > 0) {
         offset = euclid->note_pool[current_index % euclid->note_count];
-    }
-
-    int16_t result = (int16_t)base_note + (int16_t)offset;
-    if (result < 0) {
-        result = 0;
-    } else if (result > 127) {
-        result = 127;
     }
 
     uint8_t next_index = current_index;
@@ -433,7 +444,7 @@ static uint8_t seq_accumulator_apply(uint8_t track, uint8_t base_note) {
         }
     }
 
-    return (uint8_t)result;
+    return offset;
 }
 
 static void seq_accumulator_toggle(uint8_t track) {
@@ -443,6 +454,7 @@ static void seq_accumulator_toggle(uint8_t track) {
         acc->direction = 1;
     }
     seq_accumulator_reset_runtime(track);
+    seq_variation_revision++;
     seq_mark_dirty();
 }
 
@@ -450,6 +462,7 @@ static void seq_accumulator_set_direction(uint8_t track, int8_t direction) {
     seq_accumulator_state_t *acc = &seq_accumulators[track % 12];
     acc->direction = (direction >= 0) ? 1 : -1;
     seq_accumulator_reset_runtime(track);
+    seq_variation_revision++;
     seq_mark_dirty();
 }
 
@@ -467,6 +480,7 @@ static void seq_accumulator_cycle_run_length(uint8_t track) {
     }
     acc->run_length = options[next_index];
     seq_accumulator_reset_runtime(track);
+    seq_variation_revision++;
     seq_mark_dirty();
 }
 
@@ -474,6 +488,7 @@ static void seq_accumulator_toggle_random(uint8_t track) {
     seq_accumulator_state_t *acc = &seq_accumulators[track % 12];
     acc->random = !acc->random;
     seq_accumulator_reset_runtime(track);
+    seq_variation_revision++;
     seq_mark_dirty();
 }
 
@@ -1038,6 +1053,9 @@ static bool         follow_mode        = true;
 static uint32_t     seq_step_position  = 0;
 static uint32_t     seq_track_step_position[12] = {0};
 static uint32_t     seq_total_steps    = SEQ_STEPS_PER_BAR;
+static uint16_t     seq_loop_steps;
+static bool         seq_loop_held;
+static void         seq_loop_set(uint16_t steps, uint32_t now);
 
 typedef struct {
     bool     active;
@@ -1065,10 +1083,15 @@ static inline uint16_t seq_track_length_steps(uint8_t slot) {
     return length ? length : SEQ_STEPS_PER_BAR;
 }
 
+static inline uint16_t seq_track_playback_length(uint8_t slot) {
+    uint16_t length = seq_track_length_steps(slot);
+    return seq_loop_steps && seq_loop_steps < length ? seq_loop_steps : length;
+}
+
 static void seq_track_sync_position(uint8_t slot) {
     uint8_t track = slot % 12;
     /* Editing content or loop length never creates a new transport origin. */
-    seq_track_step_position[track] = seq_step_position % seq_track_length_steps(track);
+    seq_track_step_position[track] = seq_step_position % seq_track_playback_length(track);
 }
 
 static inline uint16_t seq_track_length_bars(uint8_t slot) {
@@ -1204,6 +1227,7 @@ static void seq_euclid_reset_track(uint8_t track) {
     seq_euclid_track_t *state = &euclid_tracks[track];
     *state                    = (seq_euclid_track_t){0};
     seq_palette_replace[track] = false;
+    memset(seq_modules[track].config.euclid.qualities, 0, 8);
     uint16_t length           = seq_track_length_steps(track);
     if (!length) {
         length = SEQ_STEPS_PER_BAR;
@@ -1618,6 +1642,8 @@ static void seq_euclid_palette_capture_commit(uint32_t now) {
         seq_euclid_palette_capture_reset();
         return; /* Duplicate/full captures leave playback and the saved palette intact. */
     }
+    for (uint8_t i = euclid_palette_capture.replace ? 0 : euclid_palette_capture.retained; i < 8; i++)
+        seq_modules[track].config.euclid.qualities[i] = 0;
     state->palette_authored = true;
     state->note_count = count;
     for (uint8_t i = 0; i < count; i++) {
@@ -1642,6 +1668,9 @@ static bool seq_euclid_palette_remove(uint8_t track, uint8_t index, uint32_t now
     seq_euclid_track_t *state = &euclid_tracks[track];
     seq_midi_stop_melodic_track(slot_melodic_track(track), now);
     for (uint8_t i = index; i + 1 < state->note_count; i++) state->note_pool[i] = state->note_pool[i + 1];
+    for (uint8_t i = index; i + 1 < state->note_count; i++)
+        seq_modules[track].config.euclid.qualities[i] = seq_modules[track].config.euclid.qualities[i + 1];
+    seq_modules[track].config.euclid.qualities[state->note_count - 1] = 0;
     state->note_pool[--state->note_count] = 0;
     if (state->palette_pin == index) state->palette_pin = 255;
     else if (state->palette_pin != 255 && state->palette_pin > index) state->palette_pin--;
@@ -2738,10 +2767,17 @@ static uint8_t seq_scale_apply(uint8_t track, uint8_t note) {
 }
 
 #include "seq_chord_core.inc"
+#include "seq_palette_chord.inc"
 
 /* Palette mode supplies actual pitches; transpose mode retains picked fallback. */
-static uint8_t seq_melodic_euclid_fallback(uint8_t track, uint8_t *notes) {
+static uint8_t seq_melodic_euclid_fallback(uint8_t track, uint16_t step, uint8_t *notes) {
     if (!euclid_tracks[track].note_count) return 0;
+    if (euclid_tracks[track].pitch_mode == 2) {
+        uint16_t hit;
+        if (!seq_euclid_step_hit(track, step, &hit, NULL)) return 0;
+        uint8_t slot = euclid_tracks[track].palette_pin < euclid_tracks[track].note_count ? euclid_tracks[track].palette_pin : hit % euclid_tracks[track].note_count;
+        return seq_palette_chord_notes(track, slot, notes);
+    }
     uint16_t keys = euclid_tracks[track].pitch_mode == 0 ? 0 : melodic_key_mask[track] ? melodic_key_mask[track] : melodic_last_mask[track];
     uint8_t count = 0;
     for (uint8_t semitone = 0; semitone < SEQ_MELODIC_KEY_COUNT; semitone++) {
@@ -2752,7 +2788,7 @@ static uint8_t seq_melodic_euclid_fallback(uint8_t track, uint8_t *notes) {
 }
 
 static uint8_t seq_melodic_euclid_pitch(uint8_t track, uint8_t base, int8_t offset, bool stored) {
-    int16_t pitch = base + ((euclid_tracks[track].pitch_mode || !stored) ? offset : 0);
+    int16_t pitch = base + ((euclid_tracks[track].pitch_mode == 1 || (!stored && euclid_tracks[track].pitch_mode == 0)) ? offset : 0);
     return pitch < 0 ? 0 : pitch > 127 ? 127 : pitch;
 }
 
@@ -2953,6 +2989,7 @@ static void seq_module_export_state(uint8_t track, const seq_euclid_track_t *e, 
     if (m->kind == SEQ_MODULE_EUCLID) {
         m->config.euclid            = (seq_module_euclid_t){.enabled = e->enabled, .steps = e->steps, .fills = e->fills, .rotation = e->rotate, .probability = e->probability, .accent = e->swing_amount, .ratchet = e->ratchet_threshold, .root = e->palette_root, .count = e->note_count, .pin = e->palette_pin, .pitch_mode = e->pitch_mode, .template_active = e->template_active, .template_mask = e->template_mask};
         memcpy(m->config.euclid.pool, e->note_pool, 8);
+        memcpy(m->config.euclid.qualities, seq_modules[track].config.euclid.qualities, 8);
         if (m->composed && m->rhythm.kind == 2) {
             seq_module_t legacy = *m; legacy.composed = false;
             m->rhythm = seq_module_rhythm(&legacy);
@@ -2966,6 +3003,7 @@ static void seq_module_export_selected(uint8_t track, seq_module_t *m) {
     seq_module_export_state(track, seq_euclid_selected(track, false), m);
 }
 static void seq_module_install(uint8_t track, const seq_module_t *m) {
+    seq_palette_cancel();
     seq_module_preview_stop(timer_read32());
     seq_modules[track] = *m;
     if (m->kind == SEQ_MODULE_EUCLID) {
@@ -3827,6 +3865,9 @@ static void set_view_slot(uint8_t slot) {
 }
 
 void seq_mode_on_load(void) {
+    seq_loop_steps = 0;
+    seq_palette_cancel();
+    seq_loop_held = false;
     seq_temp_active = seq_temp_enter_held = seq_temp_escape_held = false;
     seq_temp_length = 0;
     seq_temp_restore_pending = false;
@@ -3841,9 +3882,15 @@ void seq_mode_on_load(void) {
     seq_scale_global = (seq_scale_context_t){0};
     memset(seq_scale_tracks, 0, sizeof(seq_scale_tracks));
     seq_scale_editing = false;
+    seq_palette_cancel();
+    seq_palette_digit_held = seq_palette_type_held = 0;
+    seq_palette_toggle_held = false;
     seq_scale_revision = 0;
     seq_ctrl_mask = 0;
     memset(seq_modules, 0, sizeof(seq_modules));
+    memset(seq_variations, 0, sizeof(seq_variations));
+    memset(seq_variation_queued, 0, sizeof(seq_variation_queued));
+    seq_variation_pending = seq_variation_revision = seq_variation_playing = seq_variation_rejoin = 0;
     memset(&module_preview, 0, sizeof(module_preview));
     memset(track_last_tap_ms, 0, sizeof(track_last_tap_ms));
     memset(track_press_ms, 0, sizeof(track_press_ms));
@@ -5387,7 +5434,7 @@ static bool seq_euclid_print_loop(uint8_t track, uint32_t now) {
         step_edit.active || chord_capture.active || euclid_palette_capture.active || melodic_key_mask[track] ||
         cc_context.active || cc_mode.held || seq_scale_editing) return false;
     if (!slot_uses_melodic(track)) return seq_euclid_print_drum_loop(track, now);
-    if (!euclid_tracks[track].enabled) return false;
+    if (!euclid_tracks[track].enabled || seq_variations[track].enabled || (seq_variation_pending & (1u << track))) return false;
 
     mel_event_snapshot_t printed[MEL_TRACK_MAX_EVENTS];
     uint16_t count = 0;
@@ -5414,9 +5461,9 @@ static bool seq_euclid_print_loop(uint8_t track, uint32_t now) {
         }
         if (!stored) {
             uint8_t pitches[SEQ_MELODIC_KEY_COUNT];
-            uint8_t voices = seq_melodic_euclid_fallback(track, pitches);
+            uint8_t voices = seq_melodic_euclid_fallback(track, source_step, pitches);
             for (uint8_t i = 0; i < voices; i++) {
-                uint8_t pitch = seq_scale_apply(track, seq_melodic_euclid_pitch(track, pitches[i], offset, false));
+                uint8_t pitch = euclid_tracks[track].pitch_mode == 2 ? pitches[i] : seq_scale_apply(track, seq_melodic_euclid_pitch(track, pitches[i], offset, false));
                 if (seen[pitch >> 3] & (1u << (pitch & 7))) continue;
                 if (count == MEL_TRACK_MAX_EVENTS) goto full;
                 seen[pitch >> 3] |= 1u << (pitch & 7);
@@ -5430,6 +5477,12 @@ static bool seq_euclid_print_loop(uint8_t track, uint32_t now) {
     if (!mel_track_restore(track, printed, (uint8_t)count)) return false;
     seq_midi_stop_melodic_track(track, now);
     seq_euclid_enable(track, false);
+    /* Printing bakes the resolved pitches. Keep fixed chord qualities from being
+     * quantized again by ordinary melodic playback after generation stops. */
+    if (euclid_tracks[track].pitch_mode == 2) {
+        seq_scale_tracks[track].mode = 2;
+        seq_scale_revision++;
+    }
     seq_accumulators[track].enabled = false;
     seq_accumulator_reset_runtime(track);
     if (seq_pending_erase && seq_pending_erase_track == track) seq_pending_erase = false;
@@ -5580,6 +5633,9 @@ static void seq_enter(uint32_t now) {
 }
 
 static void seq_exit(void) {
+    seq_palette_cancel();
+    seq_loop_held = false;
+    seq_loop_set(0, timer_read32());
     if (seq_temp_active) seq_temp_restore(timer_read32());
     seq_chord_cancel();
     seq_step_hold_finish(false);
@@ -5696,12 +5752,26 @@ static void seq_melodic_play_note(uint8_t track, uint8_t base, uint8_t velocity,
     uint16_t scaled = (uint16_t)velocity * melodic_track_velocity[track] / 127u;
     velocity        = scaled ? scaled : 1;
     seq_melodic_release_base(track, base, now);
-    if (!seq_chord_mode[track]) note = seq_scale_apply(track, seq_accumulator_apply(track, note));
+    if (!seq_chord_mode[track]) {
+        if (stored || euclid_tracks[track].pitch_mode != 2) note = seq_scale_apply(track, note);
+    }
     seq_accumulator_register_output(track, base, note);
     if (!melodic_active_contains(track, note)) {
         if (!seq_module_preview_owns(track, note)) virtual_midi_note_on(midi_channel_for_track(track), note, velocity, now);
         melodic_active_add(track, note);
     }
+}
+
+#include "seq_variation.inc"
+
+/* A playback limit never resizes or serializes the underlying project. */
+static void seq_loop_set(uint16_t steps, uint32_t now) {
+    if (seq_loop_steps == steps) return;
+    seq_loop_steps = steps;
+    seq_midi_all_notes_off(now);
+    seq_ratchet_clear();
+    for (uint8_t track = 0; track < 12; track++) seq_track_sync_position(track);
+    seq_resume_after_skip = true;
 }
 
 static bool seq_advance_step(void) {
@@ -5713,6 +5783,7 @@ static bool seq_advance_step(void) {
     /* Restore before recording, interval calculation and note emission so the
      * first pulse of the global bar already belongs to the original pattern. */
     if (seq_temp_restore_pending && seq_step_position % SEQ_STEPS_PER_BAR == 0) seq_temp_restore(timer_read32());
+    if (seq_step_position % SEQ_STEPS_PER_BAR == 0) seq_variation_apply_pending(timer_read32());
     for (uint8_t track = 0; track < 12; track++) seq_track_sync_position(track);
     seq_first_step = false;
     seq_record_step_tick(previous, seq_step_position);
@@ -5813,6 +5884,15 @@ static void seq_emit_step(uint32_t now, bool first) {
     mel_last_stop_mask  = 0;
     for (uint8_t track = 0; track < 12; track++) {
         if (!slot_is_melodic(track)) continue;
+        bool track_first = first || (seq_variation_rejoin & (1u << track));
+        seq_variation_rejoin &= ~(1u << track);
+        bool varied = seq_accumulators[track].enabled || seq_variations[track].enabled;
+        if (varied != !!(seq_variation_playing & (1u << track))) {
+            seq_midi_stop_melodic_track(track, now);
+            seq_variation_playing ^= 1u << track;
+            track_first = true;
+        }
+        if (varied) { seq_variation_emit(track, now, track_first); continue; }
         uint16_t            step   = seq_track_step_position[track];
 
         uint8_t              desired[16] = {0};
@@ -5833,7 +5913,7 @@ static void seq_emit_step(uint32_t now, bool first) {
         bool has_source = false;
         for (uint8_t i = 0; i < count; i++) {
             mel_track_event_at(track, i, &event);
-            bool starts = event.start_step == step || ((first || euclidean) && event.start_step <= step && event.end_step >= step);
+            bool starts = event.start_step == step || ((track_first || euclidean) && event.start_step <= step && event.end_step >= step);
             if (starts) has_source = true;
             if (starts && !(triggered[event.pitch >> 3] & (1u << (event.pitch & 7)))) {
                 triggered[event.pitch >> 3] |= (uint8_t)(1u << (event.pitch & 7));
@@ -5843,7 +5923,7 @@ static void seq_emit_step(uint32_t now, bool first) {
         }
         if (euclidean && !has_source) {
             uint8_t notes[SEQ_MELODIC_KEY_COUNT];
-            uint8_t voices = seq_melodic_euclid_fallback(track, notes);
+            uint8_t voices = seq_melodic_euclid_fallback(track, step, notes);
             for (uint8_t i = 0; i < voices; i++) seq_melodic_play_note(track, notes[i], MEL_DEFAULT_VELOCITY, step, now, false);
         }
     }
@@ -5945,7 +6025,7 @@ static void seq_transport_start(uint32_t now, uint32_t position) {
     seq_ratchet_clear();
     seq_step_position = position;
     for (uint8_t track = 0; track < 12; track++) {
-        seq_track_step_position[track] = position % seq_track_length_steps(track);
+        seq_track_sync_position(track);
         seq_accumulator_reset_runtime(track);
     }
     seq_first_step          = true;
@@ -5975,11 +6055,15 @@ static void seq_transport_start(uint32_t now, uint32_t position) {
 }
 
 static void seq_transport_stop(uint32_t now) {
+    seq_palette_cancel();
+    seq_loop_held = false;
+    seq_loop_set(0, now);
     seq_chord_cancel();
     seq_flush_pending_erase();
     seq_record_on_transport_stop(seq_step_position);
     seq_running = seq_state.running = false;
     if (seq_temp_restore_pending) seq_temp_restore(now);
+    seq_variation_apply_pending(now);
     seq_external_pending            = 0;
     seq_midi_all_notes_off(now);
     seq_ratchet_clear();
@@ -6043,8 +6127,26 @@ static bool seq_tempo_encoder_update(uint8_t index, bool clockwise) {
     return true;
 }
 
+static bool seq_loop_encoder_update(uint8_t index, bool clockwise) {
+    if (index != 0 || !seq_loop_held || !seq_state.active) return false;
+    if (seq_transfer_active || record_state.armed) return true;
+    uint16_t maximum = 1;
+    for (uint8_t track = 0; track < 12; track++) {
+        uint16_t length = seq_track_length_steps(track);
+        if (length > maximum) maximum = length;
+    }
+    int32_t next = seq_loop_steps ? seq_loop_steps : seq_track_length_steps(view_slot);
+    next += clockwise ? 1 : -1;
+    if (next < 1) next = 1;
+    if (next > maximum) next = maximum;
+    seq_loop_set((uint16_t)next, timer_read32());
+    return true;
+}
+
 bool seq_cc_encoder_update(uint8_t index, bool clockwise) {
     if (seq_tempo_encoder_update(index, clockwise)) return true;
+    if (seq_loop_encoder_update(index, clockwise)) return true;
+    if (seq_palette_encoder(index, clockwise)) return true;
     if (index != 0) {
         return false;
     }
@@ -6058,6 +6160,8 @@ bool seq_cc_encoder_update(uint8_t index, bool clockwise) {
 
 bool seq_encoder_update(uint8_t index, bool clockwise) {
     if (seq_tempo_encoder_update(index, clockwise)) return false;
+    if (seq_loop_encoder_update(index, clockwise)) return false;
+    if (seq_palette_encoder(index, clockwise)) return false;
     if (index == 0 && seq_chord_encoder(clockwise ? 1 : -1)) return false;
     if (seq_step_hold.active && index == 0) {
         seq_step_hold_begin();
@@ -6247,6 +6351,7 @@ static void seq_handle_melodic_step(uint8_t slot_index, uint16_t absolute_step, 
 #include "seq_module_integration.inc"
 #include "seq_temp.inc"
 #include "seq_scale_control.inc"
+#include "seq_palette_controls.inc"
 #include "seq_chord_controls.inc"
 
 bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
@@ -6259,7 +6364,20 @@ bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
         desktop_shortcut_held = pressed;
         return true;
     }
-    if (keycode == KC_ENT) seq_temp_enter_held = pressed;
+    if (keycode == KC_ENT) {
+        seq_temp_enter_held = pressed;
+        if (!pressed) {
+            seq_palette_cancel();
+            seq_loop_held = false;
+            seq_loop_set(0, now);
+        } else if (!seq_loop_held) {
+            seq_loop_held = seq_temp_gesture_ready();
+        }
+    } else if (pressed && keycode != KC_LSFT && keycode != KC_RSFT && keycode != KC_LCTL && keycode != KC_RCTL) {
+        /* Another gesture ends the loop before it can edit or record data. */
+        seq_loop_held = false;
+        seq_loop_set(0, now);
+    }
     if (keycode == KC_ESC && seq_temp_escape_held) {
         if (!pressed) seq_temp_escape_held = false;
         return false;
@@ -6292,12 +6410,14 @@ bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
 
     if (keycode == KC_LCTL || keycode == KC_RCTL) {
         uint8_t bit = keycode == KC_LCTL ? MOD_BIT(KC_LCTL) : MOD_BIT(KC_RCTL);
+        if (pressed) seq_palette_cancel();
         if (pressed) seq_ctrl_mask |= bit; else seq_ctrl_mask &= (uint8_t)~bit;
         return true; /* Preserve QMK modifier registration and release across modes. */
     }
     if (!pressed && keycode == KC_TAB) seq_modifiers &= (uint8_t)~SEQ_MOD_TAB;
     if (!pressed && keycode == KC_CAPS) seq_modifiers &= (uint8_t)~SEQ_MOD_CAPS;
     if (!init_done) seq_housekeeping();
+    if (seq_palette_key(keycode, pressed)) return false;
     if (seq_harmony_key(keycode, pressed)) return false;
     if (seq_scale_key(keycode, pressed)) return false;
     if (seq_chord_shortcut(keycode, pressed)) return false;
@@ -6348,6 +6468,7 @@ bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
                 seq_euclid_palette_capture_reset();
                 seq_midi_stop_melodic_track(slot_melodic_track(track), now);
                 euclid_tracks[track].note_count = 0;
+                memset(seq_modules[track].config.euclid.qualities, 0, 8);
                 memset(euclid_tracks[track].note_pool, 0, sizeof(euclid_tracks[track].note_pool));
                 euclid_tracks[track].palette_pin = 255;
                 euclid_tracks[track].palette_authored = true;
@@ -7235,6 +7356,31 @@ bool seq_rgb_matrix_indicators(uint8_t led_min, uint8_t led_max) {
 
     uint32_t now = timer_read32();
 
+    if (seq_loop_steps) {
+        seq_render_digits_common(seq_loop_steps, led_min, led_max, now, true);
+        seq_rgb_set_key(KC_ENT, (RGB){255, 90, 20}, led_min, led_max);
+        return true;
+    }
+
+    if (seq_palette_edit_digit != 255) {
+        for (uint8_t led = led_min; led < led_max; led++) rgb_matrix_set_color(led, 0, 0, 0);
+        uint8_t slot = seq_palette_edit_digit ? seq_palette_edit_digit - 1 : 0;
+        uint8_t notes[8], count = seq_palette_chord_notes(view_slot, slot, notes);
+        uint8_t type = seq_modules[view_slot].config.euclid.qualities[slot];
+        uint8_t resolved = seq_palette_resolved_type(notes, count);
+        for (uint8_t i = 0; i < SEQ_MELODIC_KEY_COUNT; i++) {
+            seq_melodic_key_t key = SEQ_MELODIC_KEY(i);
+            bool tone = false;
+            for (uint8_t n = 0; n < count; n++) tone |= notes[n] % 12 == key.semitone;
+            seq_rgb_set_key(key.keycode, count && notes[0] % 12 == key.semitone ? (RGB){255,70,20} : tone ? (RGB){45,110,70} : (RGB){8,8,8}, led_min, led_max);
+        }
+        for (uint8_t i = 0; i < sizeof(seq_palette_types); i++) {
+            bool available = i < 11 || seq_chord_scale_enabled(view_slot);
+            bool selected = seq_palette_types[i] == type || ((type == 10 || type == 11) && i == resolved);
+            seq_rgb_set_key(seq_palette_type_keys[i], selected ? (RGB){170,70,255} : available ? (RGB){25,20,35} : (RGB){0,0,0}, led_min, led_max);
+        }
+        return true;
+    }
     if (seq_scale_editing) {
         for (uint8_t led = led_min; led < led_max; led++) rgb_matrix_set_color(led, 0, 0, 0);
         for (uint8_t i = 0; i < SEQ_MELODIC_KEY_COUNT; i++) {

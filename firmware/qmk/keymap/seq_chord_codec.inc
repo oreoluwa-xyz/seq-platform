@@ -37,7 +37,13 @@ static uint8_t seq_chord_codec_version(const seq_chord_event_t *c) {
 static void seq_chord_codec(seq_codec_t *c, uint8_t track, const mel_event_snapshot_t *notes, uint8_t note_count, uint16_t length, bool *chord_mode) {
     *chord_mode = false;
 
-    uint8_t           count = seq_chord_count(track), enabled = seq_chord_mode[track];
+    bool measuring = !c->read && !c->data;
+    uint8_t count = seq_chord_count(track), enabled = seq_chord_mode[track];
+    if (measuring) {
+        count = 0;
+        for (uint8_t i = 0; i < SEQ_CHORD_EVENT_CAPACITY; i++)
+            if (seq_chord_events[i].track == track && seq_chord_matches(&seq_chord_events[i], notes, note_count)) count++;
+    }
     seq_chord_event_t draft   = seq_chord_draft[track];
     bool              present = !c->read ? (enabled || count) : (c->pos < c->size && c->data[c->pos] == 'C');
     if (!present) {
@@ -50,7 +56,7 @@ static void seq_chord_codec(seq_codec_t *c, uint8_t track, const mel_event_snaps
     seq_codec_u8(c, 'C');
     uint8_t version = seq_chord_codec_version(&draft);
     for (uint8_t i = 0; i < SEQ_CHORD_EVENT_CAPACITY; i++)
-        if (seq_chord_events[i].track == track && seq_chord_codec_version(&seq_chord_events[i]) > version) version = seq_chord_codec_version(&seq_chord_events[i]);
+        if (seq_chord_events[i].track == track && (!measuring || seq_chord_matches(&seq_chord_events[i], notes, note_count)) && seq_chord_codec_version(&seq_chord_events[i]) > version) version = seq_chord_codec_version(&seq_chord_events[i]);
     version = seq_codec_u8(c, version);
     if (version < 1 || version > 4) {
         c->ok = false;
@@ -81,7 +87,7 @@ static void seq_chord_codec(seq_codec_t *c, uint8_t track, const mel_event_snaps
     for (uint8_t i = 0; i < count; i++) {
         seq_chord_event_t ev = {.track = track};
         if (!c->read) {
-            while (source < SEQ_CHORD_EVENT_CAPACITY && seq_chord_events[source].track != track)
+            while (source < SEQ_CHORD_EVENT_CAPACITY && (seq_chord_events[source].track != track || (measuring && !seq_chord_matches(&seq_chord_events[source], notes, note_count))))
                 source++;
             if (source >= SEQ_CHORD_EVENT_CAPACITY) {
                 c->ok = false;

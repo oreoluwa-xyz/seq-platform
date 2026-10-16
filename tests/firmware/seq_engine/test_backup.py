@@ -42,7 +42,7 @@ class BackupTests(unittest.TestCase):
                 self.commands = []
             def upload(self, obj, data, validate=False):
                 self.commands.append(('validate', obj))
-                return bytes((0 if obj == 0 else 5, 0, 0))
+                return bytes((0 if obj == 0 else 5, 0, 0, 0, 64))
             def request(self, command, *args, **kwargs):
                 self.commands.append(command)
                 return bytes((0, 0, 0, 48, 0, 2))
@@ -50,6 +50,27 @@ class BackupTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             connection.validate([b'object'] * 13)
         self.assertNotIn(6, connection.commands)
+
+    def test_chord_pool_preflight_and_legacy_rejection(self):
+        class Fake(backup.Connection):
+            def __init__(self, recipes, legacy=False):
+                self.recipes, self.legacy, self.commands = recipes, legacy, []
+            def upload(self, obj, data, validate=False):
+                self.assert_validation = validate
+                return bytes((0, 0, 0)) if self.legacy else bytes((0, 0, 0, self.recipes if obj else 0, 64))
+            def request(self, command, *args, **kwargs):
+                self.commands.append(command)
+                return bytes((0, 0, 0, 48, 0, 2))
+        connection = Fake(16)
+        connection.validate([b'object'] * 5)  # Exactly 64 recipes.
+        self.assertTrue(connection.assert_validation)
+        with self.assertRaisesRegex(ValueError, 'shared capacity'):
+            connection.validate([b'object'] * 6)
+        self.assertNotIn(6, connection.commands)
+        legacy = Fake(0, True)
+        with self.assertRaisesRegex(ValueError, 'Update keyboard firmware'):
+            legacy.validate([b'object'] * 13)
+        self.assertEqual(legacy.commands, [])
 
 
 if __name__ == '__main__':

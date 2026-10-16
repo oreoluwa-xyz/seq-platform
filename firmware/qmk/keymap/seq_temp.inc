@@ -19,7 +19,7 @@ static bool seq_temp_decode(bool apply) {
 
 static bool seq_temp_begin(uint32_t now) {
     if (seq_temp_active) return true; /* Never replace the original drop. */
-    if (!seq_state.active || !seq_live_can_select() || record_state.armed || cc_session.active || cc_mode.held || cc_mode.latched_temporary || seq_track_confirmation_active()) goto full;
+    if (!seq_temp_gesture_ready()) goto full;
     seq_flush_pending_erase();
     seq_temp_context_t *context = &seq_project_scratch.temp;
     context->slot = view_slot;
@@ -30,6 +30,8 @@ static bool seq_temp_begin(uint32_t now) {
     context->save_status = seq_save_status;
     memcpy(context->euclid, euclid_tracks, sizeof(context->euclid));
     memcpy(context->drafts, seq_chord_draft, sizeof(context->drafts));
+    memcpy(context->queued, seq_variation_queued, sizeof(context->queued));
+    context->variation_pending = seq_variation_pending;
     memcpy(context->accumulators, seq_accumulators, sizeof(context->accumulators));
     memcpy(context->picked, melodic_last_mask, sizeof(context->picked));
     memcpy(context->last_semitone, melodic_last_semitone, sizeof(context->last_semitone));
@@ -68,6 +70,8 @@ static void seq_temp_commit(void) {
 
 static bool seq_temp_restore(uint32_t now) {
     if (!seq_temp_active || !seq_temp_decode(false)) return false;
+    seq_loop_held = false;
+    seq_loop_set(0, now);
     const seq_temp_context_t *context = &seq_project_scratch.temp;
     /* Cancel unfinished gestures before replacing their underlying data. */
     seq_step_hold_finish(false);
@@ -99,6 +103,8 @@ static bool seq_temp_restore(uint32_t now) {
     if (!ok) return false; /* Preflight above validates every object and pool. */
     memcpy(euclid_tracks, context->euclid, sizeof(context->euclid));
     memcpy(seq_chord_draft, context->drafts, sizeof(context->drafts));
+    memcpy(seq_variation_queued, context->queued, sizeof(context->queued));
+    seq_variation_pending = context->variation_pending;
     memcpy(seq_accumulators, context->accumulators, sizeof(context->accumulators));
     memcpy(melodic_last_mask, context->picked, sizeof(context->picked));
     memcpy(melodic_last_semitone, context->last_semitone, sizeof(context->last_semitone));

@@ -567,7 +567,7 @@ static void test_modules(void) {
     assert(!seq_module_decode(&decoded, bytes, size));
     seq_module_default(&module, SEQ_MODULE_CHORD_BANK);
     assert(!seq_module_valid(&module));
-    assert(sizeof(seq_module_t) == 42);
+    assert(sizeof(seq_module_t) == 50);
 }
 static void test_live_state(void) {
     reset();
@@ -832,7 +832,7 @@ static void test_palette_pitch_mode(void) {
         for (uint8_t n = 0; n < 128; n++) assert(melodic_active_contains(0, n) == (n == expected));
         seq_backup_request(17, 0, 0, NULL, 0);
         assert(!memcmp(seq_visual_image + 640 + step * 16, melodic_active_map[0], 16));
-        assert(seq_visual_image[954] == 1 && !seq_visual_image[955]);
+        assert(seq_visual_image[954] == 2 && !seq_visual_image[955]);
         assert(seq_visual_image[952] == 0x70 && seq_visual_image[940] == 255);
     }
     uint8_t clear[] = {1}, mode[] = {0, 1};
@@ -848,7 +848,7 @@ static void test_palette_pitch_mode(void) {
     assert(!backup_status && euclid_tracks[0].pitch_mode == 1);
     seq_backup_request(18, 0, 4, clear, 1);
     assert(backup_status == 2 && mel_track_event_count(0) == 2);
-    mode[1] = 2;
+    mode[1] = 3;
     seq_backup_request(18, 0, 0, mode, 2);
     assert(backup_status == 3 && euclid_tracks[0].pitch_mode == 1);
     seq_transport_stop(test_now);
@@ -1191,7 +1191,7 @@ static void test_harmony_shortcut(void) {
     key(KC_LCTL,false);key(KC_LSFT,false);key(KC_SPC,false);
     assert(!seq_harmony_shortcut_held && !switch_state.held);
     seq_backup_request(17,0,0,NULL,0);
-    assert(seq_visual_image[638] == 127 && seq_visual_image[639] == (uint8_t)(before+1));
+    assert(seq_visual_image[638] == 255 && seq_visual_image[639] == (uint8_t)(before+1));
     seq_harmony_request=255;
     test_mods=MOD_BIT(KC_RCTL)|MOD_BIT(KC_RSFT);key(KC_SPC,true);key(KC_SPC,false);
     assert(seq_harmony_request==0 && !seq_scale_editing);
@@ -1302,7 +1302,7 @@ static void test_live_rhythm_edit(void) {
     uint8_t data[] = {3,40,0,50,0};
     seq_backup_request(19, 0, 1, data, 5); assert(backup_status == 2); /* stale child view */
     seq_backup_request(19, 0, 0, data, 4); assert(backup_status == 3);
-    seq_backup_request(17, 0, 0, NULL, 0); assert(seq_visual_image[609] == 7);
+    seq_backup_request(17, 0, 0, NULL, 0); assert(seq_visual_image[609] == 15);
     seq_transport_stop(test_now);
     /* Both composed pitch sources retain the edited rhythm in project storage. */
     for (uint8_t kind = 0; kind < 1; kind++) {
@@ -1569,7 +1569,7 @@ static void test_palette_clear(void) {
         size = sizeof(data); assert(seq_project_object(1, data, &size, false, false));
         seq_euclid_reset_track(0);
         assert(seq_project_restore_object(1, data, size) && !euclid_tracks[0].note_count);
-        uint8_t pitches[SEQ_MELODIC_KEY_COUNT]; assert(!seq_melodic_euclid_fallback(0, pitches));
+        uint8_t pitches[SEQ_MELODIC_KEY_COUNT]; assert(!seq_melodic_euclid_fallback(0, 0, pitches));
     }
     seq_dirty = true; seq_storage_save_if_dirty(); assert(!seq_dirty);
     seq_euclid_reset_track(0); seq_storage_load(); assert(!euclid_tracks[0].note_count);
@@ -1846,7 +1846,7 @@ static void test_components(void) {
             assert(seq_module_encode(&decoded, again, &size2) && size2 == size && !memcmp(wire, again, size));
         }
     seq_backup_request(15, 0, 0, NULL, 0);
-    assert(!backup_status && backup_size == 14 && backup_data[1] == 3);
+    assert(!backup_status && backup_size == 16 && backup_data[1] == 4);
     seq_backup_request(15, 1, 0, NULL, 0);
     assert(backup_status == 3);
 }
@@ -1979,6 +1979,42 @@ static void run_protocol_bridge(void) {
             virtual_midi_receive_sysex(offset, count - offset > 3 ? 3 : count - offset, packet + offset);
     }
 }
+static void test_temp_snapshot_scratch(void) {
+    reset(); seq_enter(test_now);
+    for (uint8_t t = 0; t < 4; t++) {
+        seq_slots[t].kind = SEQ_SLOT_KIND_MELODIC;
+        for (uint8_t n = 0; n < MEL_TRACK_MAX_EVENTS; n++)
+            assert(mel_track_add_note(t, n % 16, n % 16, n, 100));
+    }
+    seq_transport_start(test_now, 0);
+    uint32_t position = seq_step_position, deadline = seq_next_step_ms;
+    virtual_midi_clear_events();
+    key(KC_ENT, true); key(KC_ESC, true); key(KC_ESC, false); key(KC_ENT, false);
+    assert(seq_temp_active && seq_state.running);
+    assert(seq_step_position == position && seq_next_step_ms == deadline);
+    assert(!virtual_midi_state()->event_count);
+    for (uint8_t t = 0; t < 4; t++) seq_clear_track(t, test_now);
+    assert(seq_temp_restore(test_now));
+    for (uint8_t t = 0; t < 4; t++) assert(mel_track_event_count(t) == MEL_TRACK_MAX_EVENTS);
+    seq_matrix_scan();
+    assert(seq_state.running);
+
+    /* A codec request must not overwrite the rollback data of an active edit. */
+    mel_track_edit_begin(0);
+    assert(mel_track_remove_event(0, 0));
+    uint8_t wire[SEQ_TRANSFER_CAPACITY]; uint16_t size = sizeof(wire);
+    assert(!seq_project_object(1, wire, &size, false, false));
+    assert(!seq_temp_begin(test_now) && !seq_temp_active && seq_state.running);
+    assert(mel_track_add_note(0, 0, 0, 0, 100));
+    assert(!mel_track_add_note(0, 0, 0, 0, 100));
+    assert(!mel_track_edit_end());
+    mel_event_snapshot_t first;
+    assert(mel_track_event_at(0, 0, &first) && first.pitch == 0);
+    assert(mel_track_event_count(0) == MEL_TRACK_MAX_EVENTS);
+    assert(seq_temp_begin(test_now));
+    seq_temp_commit();
+}
+
 static void test_temp_restore(void) {
     reset(); seq_enter(test_now);
     seq_slots[1].kind = SEQ_SLOT_KIND_MELODIC;
@@ -2163,12 +2199,202 @@ static void test_mute_summary(void) {
     assert(!(seq_visual_image[6] | seq_visual_image[7] | seq_visual_image[8] | seq_visual_image[9]));
 }
 
+static uint16_t health_word(uint8_t offset) {
+    return backup_data[offset] | ((uint16_t)backup_data[offset + 1] << 8);
+}
+
+static void assert_project_health_size(void) {
+    seq_backup_request(25, 0, 0, NULL, 0);
+    assert(!backup_status && backup_size == SEQ_PROJECT_HEALTH_SIZE && (backup_data[1] & 16));
+    uint16_t save_bytes = health_word(28), temp_bytes = health_word(32);
+    uint16_t measured = 26;
+    uint8_t object[SEQ_TRANSFER_CAPACITY];
+    for (uint8_t i = 0; i <= 12; i++) {
+        uint16_t size = sizeof(object);
+        assert(seq_project_object(i, object, &size, false, false));
+        measured += size;
+    }
+    assert(save_bytes == measured + 10 && temp_bytes == measured + sizeof(seq_temp_context_t));
+}
+
+static void test_project_health(void) {
+    reset(); seq_enter(test_now);
+    assert_project_health_size();
+    seq_backup_request(25, 0, 0, NULL, 0);
+    assert(!(backup_data[1] & 64) && (backup_data[1] & 32));
+    seq_slots[0].kind = SEQ_SLOT_KIND_MELODIC;
+    seq_chord_mode_set(0, true);
+    seq_chord_event_t chord = {.root = 60, .type = SEQ_CHORD_CUSTOM, .length = 4, .velocity = 100, .inversion = 1, .quantize = 1, .quantize_root = 2, .quantize_kind = 1, .custom_count = 3, .intervals = {0, 4, 7}, .name = "Major"};
+    assert(seq_chord_write(0, 0, chord, false));
+    seq_drum_step_set(1, 2, 15, true);
+    drum_active_note[1] = 2;
+    seq_drum_step_mod_ensure(1, 2, 15)->config = 1;
+    seq_automation_record(0, 1, 0, 80);
+    seq_scale_global = (seq_scale_context_t){1, 2, 1};
+    seq_scale_tracks[0] = (seq_scale_track_t){.mode = 1, .root = 1, .kind = 2};
+    cc_automation_manual[0] = true;
+    seq_euclid_enable(1, true);
+    assert_project_health_size();
+    seq_backup_request(25, 1, 0, NULL, 0);
+    assert(backup_data[3] == 1 && backup_data[4] == 2 && backup_data[5] == 1);
+    assert(health_word(8) == 0 && health_word(10) == 3 && health_word(12) == 1 && health_word(16) == 1 && health_word(24) == 1);
+    seq_storage_save_if_dirty();
+    assert(!seq_dirty && !seq_save_status);
+    seq_backup_request(25, 0, 0, NULL, 0);
+    assert(!(backup_data[1] & 1) && (backup_data[1] & 64));
+
+    /* Telemetry cannot stop playback, select tracks, emit notes, save, prune
+     * metadata, or overwrite either a transfer or the original TEMP drop. */
+    mel_track_clear_range(0, 0, 4);
+    assert(seq_chord_count(0) == 1);
+    seq_transport_start(test_now, 0);
+    uint16_t position = seq_step_position;
+    uint8_t selected = view_slot;
+    unsigned writes = test_eeprom_writes;
+    virtual_midi_clear_events();
+    memset(seq_transfer_buffer, 0xA5, SEQ_TEMP_CAPACITY);
+    seq_backup_request(25, 1, 0, NULL, 0);
+    assert(!backup_status && health_word(12) == 0 && seq_chord_count(0) == 1);
+    assert(seq_state.running && position == seq_step_position && selected == view_slot && !seq_transfer_active);
+    assert(!virtual_midi_state()->event_count && test_eeprom_writes == writes);
+    for (uint16_t i = 0; i < SEQ_TEMP_CAPACITY; i++) assert(seq_transfer_buffer[i] == 0xA5);
+    assert_project_health_size(); /* Size agrees with export after stale recipes are pruned. */
+    assert(seq_temp_begin(test_now));
+    uint32_t original = seq_project_checksum(seq_transfer_buffer, seq_temp_length);
+    seq_drum_step_set(2, 1, 4, true);
+    seq_backup_request(25, 0, 0, NULL, 0);
+    assert((backup_data[1] & 2) && !(backup_data[1] & 32));
+    assert(health_word(36) == seq_temp_length && seq_project_checksum(seq_transfer_buffer, seq_temp_length) == original);
+    assert(seq_temp_restore(test_now) && !seq_drum_step_get(2, 1, 4));
+    seq_transfer_active = true;
+    seq_transfer_length = 10;
+    seq_transfer_received = 7;
+    memset(seq_transfer_buffer, 0xC3, 10);
+    seq_backup_request(25, 0, 0, NULL, 0);
+    assert((backup_data[1] & 8) && !(backup_data[1] & 32));
+    assert(seq_transfer_length == 10 && seq_transfer_received == 7);
+    for (uint8_t i = 0; i < 10; i++) assert(seq_transfer_buffer[i] == 0xC3);
+    seq_transfer_active = false;
+    mel_track_edit_begin(0);
+    seq_backup_request(25, 0, 0, NULL, 0);
+    assert(!backup_status && !(backup_data[1] & 16) && !(backup_data[1] & 32));
+    assert(mel_track_edit_end());
+    seq_backup_request(25, 12, 0, NULL, 0); assert(backup_status == 3);
+    seq_backup_request(25, 0, 1, NULL, 0); assert(backup_status == 3);
+
+    reset(); seq_enter(test_now);
+    for (uint8_t t = 0; t < 12; t++) {
+        seq_slots[t].kind = SEQ_SLOT_KIND_MELODIC;
+        for (uint8_t i = 0; i < MEL_TRACK_MAX_EVENTS; i++) assert(mel_track_add_note(t, i, i, 60, 100));
+    }
+    assert_project_health_size();
+    seq_backup_request(25, 0, 0, NULL, 0);
+    assert(health_word(8) == MEL_TRACK_MAX_EVENTS && health_word(10) == 12 * MEL_TRACK_MAX_EVENTS);
+    assert(health_word(28) > EECONFIG_USER_DATA_SIZE && health_word(32) > SEQ_TEMP_CAPACITY && !(backup_data[1] & 32));
+    /* A valid EEPROM version marker is not proof of a valid project. A
+     * subsequent oversized save must not turn corrupt storage into "saved". */
+    test_eeprom_valid = true;
+    memset(test_eeprom, 0, sizeof(test_eeprom));
+    seq_storage_load();
+    assert(seq_save_status == 3);
+    seq_storage_save_if_dirty();
+    seq_backup_request(25, 0, 0, NULL, 0);
+    assert(backup_data[2] == 2 && (backup_data[1] & 1) && !(backup_data[1] & 64));
+}
+
+static void test_restore_chord_distribution(void) {
+    reset();
+    seq_enter(test_now);
+    seq_slots[0].kind = SEQ_SLOT_KIND_MELODIC;
+    seq_chord_mode_set(0, true);
+    track_length_steps[0] = 32;
+    track_length_bars[0] = 2;
+    seq_chord_event_t chord = {.root = 60, .type = 0, .length = 1, .velocity = 100};
+    for (uint8_t i = 0; i < 32; i++) assert(seq_chord_write(0, i, chord, false));
+    uint8_t saved[SEQ_TRANSFER_CAPACITY], restored[SEQ_TRANSFER_CAPACITY];
+    uint16_t length = sizeof(saved);
+    assert(seq_project_object(1, saved, &length, false, false));
+
+    reset();
+    seq_enter(test_now);
+    for (uint8_t t = 0; t < 4; t++) {
+        seq_slots[t].kind = SEQ_SLOT_KIND_MELODIC;
+        seq_chord_mode_set(t, true);
+        for (uint8_t i = 0; i < 16; i++) assert(seq_chord_write(t, i, chord, false));
+    }
+    uint8_t previous[4][SEQ_TRANSFER_CAPACITY];
+    uint16_t previous_size[4];
+    for (uint8_t t = 0; t < 4; t++) {
+        previous_size[t] = sizeof(previous[t]);
+        assert(seq_project_object(t + 1, previous[t], &previous_size[t], false, false));
+    }
+    /* A malformed clear must leave the full recipe pool and notes intact. */
+    seq_backup_request(6, 0, 0, (const uint8_t *)"bad!", 4);
+    assert(backup_status == 3 && seq_chord_count(3) == 16 && mel_track_event_count(3) == 48);
+    seq_backup_request(6, 0, 0, (const uint8_t *)"SEQ!", 4);
+    assert(!backup_status);
+    for (uint8_t t = 0; t < 12; t++) assert(!seq_chord_count(t) && !mel_track_event_count(t));
+
+    /* Validate and commit through the same protocol used by the restore CLI. */
+    uint32_t hash = seq_project_checksum(saved, length);
+    uint8_t checksum[4] = {hash, hash >> 8, hash >> 16, hash >> 24};
+    for (uint8_t command = 5; command >= 4; command--) {
+        seq_backup_request(2, 1, length, NULL, 0);
+        assert(!backup_status);
+        for (uint16_t offset = 0; offset < length; offset += 32) {
+            uint8_t size = length - offset > 32 ? 32 : length - offset;
+            seq_backup_request(3, 1, offset, saved + offset, size);
+            assert(!backup_status);
+        }
+        seq_backup_request(command, 1, command == 5 ? 1 : 0, checksum, sizeof(checksum));
+        assert(!backup_status);
+        if (command == 5) assert(backup_size == 5 && backup_data[3] == 32 && backup_data[4] == SEQ_CHORD_EVENT_CAPACITY);
+    }
+    assert(seq_chord_count(0) == 32 && mel_track_event_count(0) == 96);
+    uint16_t size = sizeof(restored);
+    assert(seq_project_object(1, restored, &size, false, false));
+    assert(size == length && !memcmp(saved, restored, size));
+    assert(seq_project_restore_object(2, saved, length));
+    assert(seq_chord_count(1) == 32);
+    /* A failed later object preserves applied tracks; the recovery clear then
+     * allows the former full pool to be distributed across four tracks again. */
+    assert(!seq_project_restore_object(3, saved, length - 1));
+    assert(seq_chord_count(0) == 32 && seq_chord_count(1) == 32);
+    seq_backup_request(6, 0, 0, (const uint8_t *)"SEQ!", 4);
+    for (uint8_t t = 0; t < 4; t++) {
+        assert(seq_project_restore_object(t + 1, previous[t], previous_size[t]));
+        size = sizeof(restored);
+        assert(seq_project_object(t + 1, restored, &size, false, false));
+        assert(size == previous_size[t] && !memcmp(previous[t], restored, size));
+    }
+}
+
+#include "test_seq_global_loop.inc"
+#include "test_seq_palette_chords.inc"
+#include "test_seq_variation.inc"
+
 int main(int argc, char **argv) {
     if (argc > 1 && !strcmp(argv[1], "--bridge")) {
         run_protocol_bridge();
         return 0;
     }
 
+    test_variation_track_scope_clock();
+    test_accumulator_chords();
+    test_variation_groups();
+    test_variation_controls_storage();
+    test_variation_mutation_projection();
+    test_palette_chord_gestures();
+    test_palette_chord_playback();
+    test_palette_chord_storage();
+    test_palette_chord_protocol();
+    test_global_loop_preservation();
+    test_global_loop_playback();
+    test_global_loop_external();
+    test_global_loop_gestures();
+    test_project_health();
+    test_restore_chord_distribution();
+    test_temp_snapshot_scratch();
     test_temp_restore();
     test_temp_commit();
     test_temp_quantized_controls();
@@ -2228,5 +2454,5 @@ int main(int argc, char **argv) {
     test_euclid_picked_notes();
     test_transport_restart();
     test_bounded_save();
-    puts("seq_engine: 59 regression groups passed");
+    puts("seq_engine: 75 regression groups passed");
 }

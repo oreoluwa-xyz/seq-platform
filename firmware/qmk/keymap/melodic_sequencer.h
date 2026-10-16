@@ -44,6 +44,10 @@ typedef struct {
     uint16_t end_step;
 } mel_event_snapshot_t;
 
+/* Synchronous codec scratch, invalidated by the next edit or codec operation.
+ * NULL while an edit owns the rollback buffer. Never retain this pointer. */
+mel_event_snapshot_t *mel_track_snapshot_scratch(void);
+
 void seq_melodic_notify_changed(void);
 
 void mel_tracks_init(void);

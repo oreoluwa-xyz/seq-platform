@@ -20,8 +20,9 @@ typedef enum { SEQ_MODULE_EUCLID = 0, SEQ_MODULE_CHORD_BANK = 1 } seq_module_kin
 typedef struct {
     uint16_t steps, fills, rotation, template_mask;
     uint8_t  enabled, probability, accent, ratchet, root, count, pin, template_active;
-    uint8_t  pitch_mode; /* 0: palette pitches with step overrides; 1: transpose phrase. */
+    uint8_t  pitch_mode; /* 0: palette pitches with step overrides; 1: transpose phrase; 2: chord palette. */
     int8_t   pool[8];
+    uint8_t  qualities[8]; /* Chord types 0..11 or 16; 10/11 are Auto triad/seventh. */
 } seq_module_euclid_t;
 typedef struct {
     uint8_t                kind;
@@ -36,6 +37,7 @@ void seq_module_default(seq_module_t *module, uint8_t kind);
 bool seq_module_valid(const seq_module_t *module);
 /* Decode validates the entire object before assigning the destination. */
 bool                   seq_module_decode(seq_module_t *module, const uint8_t *data, uint16_t size);
+/* NULL data measures encoded size without writing a buffer. */
 bool                   seq_module_encode(const seq_module_t *module, uint8_t *data, uint16_t *size);
 /* Read-only migration for saved tracks; new bank installations remain rejected. */
 bool seq_module_migrate_bank(seq_module_t *module, const uint8_t *data, uint16_t size);

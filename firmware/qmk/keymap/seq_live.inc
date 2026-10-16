@@ -68,6 +68,7 @@ static void seq_live_snapshot(uint8_t *out) {
 }
 
 static bool seq_live_can_select(void) {
+    if (seq_loop_held || seq_palette_digit_held || seq_palette_type_held) return false;
     if (seq_chord_held || seq_chord_note_held || seq_step_hold.active || seq_scale_editing || seq_transfer_active || step_edit.active || chord_capture.active || record_state.capturing || note_hold_mask || cmd_state.held || switch_state.held) return false;
     for (uint8_t i = 0; i < 12; i++) {
         if (track_held[i] || melodic_key_mask[i]) return false;

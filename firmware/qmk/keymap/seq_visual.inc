@@ -34,6 +34,7 @@ static void seq_projected_step_notes(uint8_t slot, uint16_t step, uint8_t *notes
     seq_module_export_selected(slot, &module);
     uint8_t track = slot_melodic_track(slot);
     uint8_t count = mel_track_event_count(track);
+    if (slot_uses_melodic(slot) && seq_variations[track].enabled) { seq_variation_project(track, step, notes); return; }
 
     int8_t offset = 0;
     bool euclidean = module.kind == SEQ_MODULE_EUCLID && euclid_tracks[slot].enabled;
@@ -48,10 +49,10 @@ static void seq_projected_step_notes(uint8_t slot, uint16_t step, uint8_t *notes
     }
     if (euclidean && !has_source) {
         uint8_t pitches[SEQ_MELODIC_KEY_COUNT];
-        uint8_t voices = seq_melodic_euclid_fallback(track, pitches);
+        uint8_t voices = seq_melodic_euclid_fallback(track, step, pitches);
         for (uint8_t n = 0; n < voices; n++) {
             int16_t pitch = seq_melodic_euclid_pitch(track, pitches[n], offset, false);
-            seq_live_note(notes, seq_scale_apply(track, pitch < 0 ? 0 : pitch > 127 ? 127 : pitch));
+            seq_live_note(notes, euclid_tracks[track].pitch_mode == 2 ? pitch : seq_scale_apply(track, pitch < 0 ? 0 : pitch > 127 ? 127 : pitch));
         }
     }
 }
@@ -62,18 +63,18 @@ static void seq_rhythm_snapshot(void) {
     seq_module_export_selected(slot, &module);
     seq_rhythm_component_t rhythm = seq_module_rhythm(&module);
     uint8_t *meta = seq_visual_image + SEQ_DETAIL_SIZE;
-    meta[0] = (rhythm.kind == 2 ? 1 : 0) | (rhythm.enabled ? 2 : 0) | (rhythm.template_active ? 4 : 0) | (!module.composed && module.kind == SEQ_MODULE_EUCLID && seq_accumulators[slot].enabled ? 8 : 0);
+    meta[0] = (rhythm.kind == 2 ? 1 : 0) | (rhythm.enabled ? 2 : 0) | (rhythm.template_active ? 4 : 0) | (seq_accumulators[slot].enabled ? 8 : 0);
     meta[14] = 1; meta[15] = seq_scale_global.enabled; meta[16] = seq_scale_global.root; meta[17] = seq_scale_global.kind;
     meta[18] = seq_scale_tracks[slot].mode; meta[19] = seq_scale_tracks[slot].root;
     meta[20] = seq_scale_tracks[slot].kind; meta[21] = seq_scale_tracks[slot].direction;
     meta[22] = seq_scale_editing; meta[23] = seq_scale_pending.enabled; meta[24] = seq_scale_pending.root; meta[25] = seq_scale_pending.kind;
     seq_live_u16(meta + 26, seq_scale_revision);
     meta[28] = SEQ_SCALE_COUNT;
-    meta[30] = 127; /* Bit 0: melody source objects. Bit 1: harmony shortcut. Bit 2: chord editor. Bit 3: Ctrl + knob tempo. Bit 4: chord inversions. Bit 5: custom/quantized chords. Bit 6: scale-bound chord variations. */
+    meta[30] = 255; /* Bit 7: momentary global loop; bits 0-6: harmony, chord and tempo capabilities. */
     meta[31] = seq_harmony_request;
     meta[29] = 1; /* Paged CC state (command 21) available. */
     meta[11] = slot_uses_melodic(slot) ? 255 : drum_active_note[slot];
-    meta[1] = 7; /* Bit 0: editing; bit 1: ordered controls; bit 2: explicit lane context. */
+    meta[1] = 15; /* Bit 0: editing; bit 1: ordered controls; bit 2: explicit lane context. */
     seq_live_u16(meta + 2, rhythm.steps);
     seq_live_u16(meta + 4, rhythm.fills);
     seq_live_u16(meta + 6, rhythm.rotation);
@@ -100,6 +101,7 @@ static void seq_palette_snapshot(void) {
     uint8_t *out = seq_visual_image + SEQ_RHYTHM_SIZE;
     memset(out + 40, 255, 16);
     out[2] = 255;
+    seq_live_u16(out + 6, seq_loop_steps); /* Zero means original track lengths. */
     out[62] = 128 | 16 | (seq_temp_active ? 32 : 0) | (seq_temp_restore_pending ? 64 : 0); /* Mute summary support; global TEMP capability, active, queued. */
     if (!slot_uses_melodic(slot) || seq_modules[slot].kind != SEQ_MODULE_EUCLID) return;
     uint8_t track = slot_melodic_track(slot);
@@ -109,7 +111,7 @@ static void seq_palette_snapshot(void) {
     out[1] = e->note_count;
     out[2] = e->palette_pin;
     out[3] = seq_melodic_note_pitch(track, e->palette_root);
-    out[58] = 1; /* Pitch-mode controls and per-step overrides supported. */
+    out[58] = 2; /* Pitch-mode controls and per-step overrides supported. */
     out[59] = e->pitch_mode;
     out[60] = 1 | ((capturing ? euclid_palette_capture.replace : seq_palette_replace[slot]) ? 2 : 0) | (capturing && euclid_palette_capture.full ? 4 : 0);
     out[61] = capturing ? euclid_palette_capture.retained : 0;
@@ -119,6 +121,10 @@ static void seq_palette_snapshot(void) {
         int16_t pitch = (int16_t)out[3] + e->note_pool[i];
         out[8 + i] = (uint8_t)e->note_pool[i];
         out[16 + i] = pitch < 0 ? 0 : pitch > 127 ? 127 : pitch;
+    }
+    if (!capturing) {
+        memcpy(out + 24, seq_modules[slot].config.euclid.qualities, 8);
+        out[32] = seq_palette_edit_digit;
     }
     if (capturing) {
         out[4] = euclid_palette_capture.count;
@@ -134,7 +140,7 @@ static void seq_palette_snapshot(void) {
         bool stored = false;
         for (uint8_t n = 0; n < 16; n++) stored |= seq_visual_image[SEQ_VISUAL_SIZE + i * 16 + n] != 0;
         if (stored) out[56 + i / 8] |= 1u << (i % 8);
-        if (!e->note_count || (stored && !e->pitch_mode)) continue;
+        if (!e->note_count || (stored && e->pitch_mode != 1)) continue;
         if (step < seq_track_length_steps(slot) && seq_euclid_step_hit(slot, step, &hit, NULL))
             out[40 + i] = e->palette_pin < e->note_count ? e->palette_pin : hit % (e->note_count ? e->note_count : 1);
     }

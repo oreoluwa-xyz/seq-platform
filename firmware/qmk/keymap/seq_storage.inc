@@ -15,6 +15,8 @@ typedef struct {
     seq_chord_event_t drafts[12];
     seq_euclid_track_t euclid[12];
     seq_accumulator_state_t accumulators[12];
+    seq_variation_t queued[12];
+    uint16_t variation_pending;
     uint16_t picked[12];
     uint8_t last_semitone[12], drum_note[12];
     uint8_t slot, child_slot, save_status;
@@ -31,6 +33,7 @@ static union {
 static uint16_t seq_harmony_source_size;
 static uint8_t seq_harmony_source_object;
 static uint8_t  seq_save_status; /* 0 saved, 1 dirty, 2 too large, 3 invalid */
+static bool seq_saved_valid;
 static bool     seq_transfer_active;
 static uint32_t seq_transfer_deadline;
 static uint16_t seq_transfer_length, seq_transfer_received;
@@ -48,7 +51,8 @@ static uint8_t seq_codec_u8(seq_codec_t *c, uint8_t value) {
         return 0;
     }
     if (c->read) return c->data[c->pos++];
-    c->data[c->pos++] = value;
+    if (c->data) c->data[c->pos] = value;
+    c->pos++;
     return value;
 }
 static uint16_t seq_codec_u16(seq_codec_t *c, uint16_t value) {
@@ -91,7 +95,8 @@ static void seq_project_module(seq_codec_t *c, uint8_t track, bool chord_mode, b
     seq_module_t module;
     if (c->read) {
         uint16_t size = c->size - c->pos;
-        if (!seq_module_decode(&module, c->data + c->pos, size) && !(legacy_track && seq_module_migrate_bank(&module, c->data + c->pos, size))) {
+        bool migrated = !seq_module_decode(&module, c->data + c->pos, size);
+        if (migrated && !(legacy_track && seq_module_migrate_bank(&module, c->data + c->pos, size))) {
             c->ok = false;
             return;
         }
@@ -100,11 +105,20 @@ static void seq_project_module(seq_codec_t *c, uint8_t track, bool chord_mode, b
             c->ok = false;
             return;
         }
-        if (c->apply) seq_module_install(track, &module);
+        if (c->apply) {
+            /* Stored-rhythm modules omit rhythm parameters. Track restores must
+             * retain those serialized settings, including inactive generators. */
+            seq_euclid_track_t rhythm = euclid_tracks[track];
+            seq_module_install(track, &module);
+            if (legacy_track && !migrated && module.composed && module.rhythm.kind == 1) {
+                rhythm.pitch_mode = module.config.euclid.pitch_mode;
+                euclid_tracks[track] = rhythm;
+            }
+        }
     } else {
         seq_module_export(track, &module);
         uint16_t size = c->size - c->pos;
-        if (!seq_module_encode(&module, c->data + c->pos, &size)) {
+        if (!seq_module_encode(&module, c->data ? c->data + c->pos : NULL, &size)) {
             c->ok = false;
             return;
         }
@@ -112,6 +126,7 @@ static void seq_project_module(seq_codec_t *c, uint8_t track, bool chord_mode, b
     }
 }
 #include "seq_chord_codec.inc"
+#include "seq_variation_codec.inc"
 static void seq_project_euclid(seq_codec_t *c, seq_euclid_track_t *e) {
     PROJECT_BYTE(e->enabled, 1);
     PROJECT_BYTE(e->template_active, 1);
@@ -172,6 +187,13 @@ static void seq_project_lane_rhythms(seq_codec_t *c, uint8_t track, uint16_t sto
     }
 }
 static void seq_project_track(seq_codec_t *c, uint8_t t) {
+    /* Reuse idle rollback RAM rather than placing 768 bytes on the 2 KiB
+     * keyboard-task stack. Reject before touching an in-progress edit. */
+    mel_event_snapshot_t *snapshot = mel_track_snapshot_scratch();
+    if (!snapshot) {
+        c->ok = false;
+        return;
+    }
     uint16_t track_start = c->pos;
     uint16_t length = seq_codec_u16(c, seq_track_length_steps(t));
     if (!length || length > SEQ_MAX_STEPS) c->ok = false;
@@ -275,7 +297,6 @@ static void seq_project_track(seq_codec_t *c, uint8_t t) {
         c->ok = false;
         return;
     }
-    mel_event_snapshot_t snapshot[MEL_TRACK_MAX_EVENTS];
     for (uint8_t i = 0; i < notes; i++) {
         mel_event_snapshot_t ev = {0};
         if (!c->read) mel_track_event_at(t, i, &ev);
@@ -344,6 +365,7 @@ static void seq_project_track(seq_codec_t *c, uint8_t t) {
     bool chord_mode = false;
     seq_chord_codec(c,t,snapshot,notes,length,&chord_mode);
     if (chord_mode && c->read && (c->pos >= c->size || c->data[track_start + 2] != SEQ_SLOT_KIND_MELODIC || c->data[track_start + 3])) c->ok = false;
+    seq_project_variation(c, t);
     /* Older project objects have no module extension and retain Euclid. */
     if (c->ok && (!c->read || c->pos < c->size))
         seq_project_module(c, t, chord_mode, true);
@@ -366,7 +388,7 @@ static uint32_t seq_project_checksum(const uint8_t *data, uint16_t size) {
 }
 static bool seq_harmony_source(seq_codec_t *c, uint8_t slot);
 static bool seq_project_object(uint8_t object, uint8_t *data, uint16_t *size, bool read, bool apply) {
-    if(!read)seq_chord_prune();
+    if (!read && data) seq_chord_prune();
     seq_codec_t codec = {.data = data, .size = *size, .read = read, .apply = apply, .ok = true};
     seq_codec_chords = 0;
     seq_codec_lanes = seq_codec_cc = 0;
@@ -454,13 +476,16 @@ static void seq_storage_save_if_dirty(void) {
     eeconfig_update_user_datablock(seq_saved_buffer);
     seq_dirty       = false;
     seq_save_status = 0;
+    seq_saved_valid = true;
 }
 void eeconfig_init_user_datablock(void) {
     /* QMK's weak default uses a full user-block-sized automatic array. */
     memset(seq_saved_buffer, 0, sizeof(seq_saved_buffer));
     eeconfig_update_user_datablock(seq_saved_buffer);
+    seq_saved_valid = false;
 }
 static void seq_storage_load(void) {
+    seq_saved_valid = false;
     if (!eeconfig_is_user_datablock_valid()) return;
     eeconfig_read_user_datablock(seq_saved_buffer);
     if (!seq_project_saved_decode(false)) {
@@ -474,6 +499,7 @@ static void seq_storage_load(void) {
     seq_loading     = false;
     seq_dirty       = false;
     seq_save_status = 0;
+    seq_saved_valid = true;
     seq_update_total_steps();
     seq_clamp_view_bar();
     seq_apply_layout(current_layout);
@@ -482,6 +508,8 @@ static void seq_storage_load(void) {
 #include "seq_live.inc"
 #include "seq_visual.inc"
 #include "seq_rhythm_edit.inc"
+#include "seq_project_health.inc"
+#include "seq_variation_control.inc"
 static void seq_scale_request(uint8_t track, uint16_t context, const uint8_t *data, uint8_t size);
 
 /* USB MIDI SysEx commands: 1 read, 2 begin write, 3 append, 4 commit,
@@ -491,6 +519,14 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
     uint8_t status     = 0;
     uint8_t reply[36]  = {0};
     uint8_t reply_size = 0;
+    if (command == 26 || command == 27) { seq_variation_request(command, object, offset, data, size); return; }
+    if (command == 25) {
+        uint8_t health[SEQ_PROJECT_HEALTH_SIZE];
+        if (object >= SEQ_TRACK_COUNT || offset || size) status = 3;
+        else seq_project_health(object, health);
+        virtual_midi_backup_reply(command, object, offset, status, health, status ? 0 : sizeof(health));
+        return;
+    }
     if (seq_temp_active && command >= 1 && command <= 9) {
         virtual_midi_backup_reply(command, object, offset, 2, NULL, 0);
         return;
@@ -517,14 +553,21 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
     }
     if (command == 18) {
         /* Remove includes the displayed palette to reject stale slot indices. */
-        if (object >= 12 || !data || !size || data[0] > 3 ||
-            (data[0] == 3 ? size != 12 || offset || data[1] >= SEQ_EUCLID_NOTE_POOL_MAX || data[2] > SEQ_EUCLID_NOTE_POOL_MAX :
-             data[0] != 1 ? size != 2 || data[1] > 1 || offset : size != 1 || offset >= seq_track_length_steps(object))) {
+        if (object >= 12 || !data || !size || data[0] > 4 ||
+            (data[0] == 4 ? size != 21 || offset || data[1] > 8 || data[2] > 8 || (data[20] > 11 && data[20] != 16) :
+             data[0] == 3 ? size != 12 || offset || data[1] >= SEQ_EUCLID_NOTE_POOL_MAX || data[2] > SEQ_EUCLID_NOTE_POOL_MAX :
+             data[0] != 1 ? size != 2 || data[1] > (data[0] == 0 ? 2 : 1) || offset : size != 1 || offset >= seq_track_length_steps(object))) {
             status = 3;
         } else if (object != view_slot || !slot_uses_melodic(object) || seq_modules[object].kind != SEQ_MODULE_EUCLID ||
-                   seq_transfer_active || record_state.armed || step_edit.active || chord_capture.active || euclid_palette_capture.active || melodic_key_mask[object] ||
-                   (data[0] == 1 && (euclid_tracks[object].pitch_mode || !euclid_tracks[object].enabled))) {
+                   seq_transfer_active || seq_palette_digit_held || seq_palette_type_held || record_state.armed || step_edit.active || chord_capture.active || euclid_palette_capture.active || melodic_key_mask[object] ||
+                   (data[0] == 1 && (euclid_tracks[object].pitch_mode == 1 || !euclid_tracks[object].enabled))) {
             status = 2;
+        } else if (data[0] == 4 && (euclid_tracks[object].pitch_mode != 2 || data[2] != euclid_tracks[object].note_count || data[3] != euclid_tracks[object].palette_root ||
+                   (data[1] != 8 && data[1] >= data[2]) || memcmp(data + 4, euclid_tracks[object].note_pool, data[2]) ||
+                   memcmp(data + 12, seq_modules[object].config.euclid.qualities, 8) || ((data[20] == 10 || data[20] == 11) && !seq_chord_scale_enabled(object)))) {
+            status = 2;
+        } else if (data[0] == 4) {
+            seq_palette_set_quality(object, data[1] == 8 ? 0 : data[1] + 1, data[20]);
         } else if (data[0] == 3 && (data[2] != euclid_tracks[object].note_count || data[3] != euclid_tracks[object].palette_root ||
                    data[1] >= data[2] || memcmp(data + 4, euclid_tracks[object].note_pool, data[2]))) {
             status = 2;
@@ -559,7 +602,7 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
     if (command == 15) {
         /* Catalog v1, module v2, two stages, eight voices, max wire bytes,
          * followed by (component ID, contract version) pairs. */
-        const uint8_t catalog[] = {1, 3, 2, SEQ_CHORD_VOICES, SEQ_MODULE_WIRE_MAX, 0, 1, 1, 2, 1, 3, 1, 3, 2};
+        const uint8_t catalog[] = {1, 4, 2, SEQ_CHORD_VOICES, SEQ_MODULE_WIRE_MAX, 0, 1, 1, 2, 1, 3, 1, 3, 2, 3, 3};
         virtual_midi_backup_reply(command, object, offset, (object || offset || size) ? 3 : 0, catalog, (object || offset || size) ? 0 : sizeof(catalog));
         return;
     }
@@ -643,6 +686,12 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
                     reply[1]   = seq_codec_cc & 255u;
                     reply[2]   = seq_codec_cc >> 8;
                     reply_size = 3;
+                    /* Offset 1 requests recipe preflight; preserve legacy replies. */
+                    if (offset == 1) {
+                        reply[3] = seq_codec_chords;
+                        reply[4] = SEQ_CHORD_EVENT_CAPACITY;
+                        reply_size = 5;
+                    }
                 }
             } else if (!seq_project_restore_object(object, seq_transfer_buffer, length))
                 status = 3;
@@ -655,6 +704,7 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
                 seq_drum_pool_init();
                 mel_tracks_init();
                 seq_automation_init();
+                memset(seq_chord_events, 255, sizeof(seq_chord_events));
                 seq_mark_dirty();
             }
         } else if (command == 7) {

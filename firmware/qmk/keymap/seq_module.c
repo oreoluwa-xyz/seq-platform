@@ -37,7 +37,9 @@ bool seq_module_valid(const seq_module_t *m) {
     if (!seq_rhythm_valid(&rhythm)) return false;
     if (m->kind == SEQ_MODULE_EUCLID) {
         const seq_module_euclid_t *e = &m->config.euclid;
-        return e->pitch_mode <= 1 && e->root < 12 && e->count <= 8 && (e->pin == 255 || e->pin < e->count);
+        for (uint8_t i = 0; i < 8; i++)
+            if (e->qualities[i] > 11 && e->qualities[i] != 16) return false;
+        return e->pitch_mode <= 2 && e->root < 12 && e->count <= 8 && (e->pin == 255 || e->pin < e->count);
     }
     return false;
 }
@@ -52,7 +54,8 @@ static uint8_t byte(module_codec_t *c, uint8_t value) {
         return 0;
     }
     if (c->read) return c->data[c->pos++];
-    c->data[c->pos++] = value;
+    if (c->data) c->data[c->pos] = value;
+    c->pos++;
     return value;
 }
 static uint16_t word(module_codec_t *c, uint16_t value) {
@@ -83,6 +86,14 @@ static bool discard_bank(seq_module_t *m, module_codec_t *c) {
     c->migrated = true;
     return c->ok;
 }
+static bool chord_palette_contract(const seq_module_t *m) {
+    if (m->config.euclid.pitch_mode == 2) return true;
+    for (uint8_t i = 0; i < 8; i++) if (m->config.euclid.qualities[i]) return true;
+    return false;
+}
+static void palette_qualities_codec(seq_module_t *m, module_codec_t *c) {
+    for (uint8_t i = 0; i < 8; i++) m->config.euclid.qualities[i] = byte(c, m->config.euclid.qualities[i]);
+}
 static bool component_codec(seq_module_t *m, module_codec_t *c) {
     m->composed               = true;
     seq_rhythm_component_t *r = &m->rhythm;
@@ -101,8 +112,8 @@ static bool component_codec(seq_module_t *m, module_codec_t *c) {
     } else if (r->kind != 1)
         return false;
     uint8_t source = byte(c, m->kind + 3);
-    uint8_t contract = byte(c, source == 3 && !m->config.euclid.pitch_mode ? 2 : 1);
-    if (source < 3 || source > 4 || (contract != 1 && !(source == 3 && contract == 2))) return false;
+    uint8_t contract = byte(c, source == 3 && chord_palette_contract(m) ? 3 : source == 3 && !m->config.euclid.pitch_mode ? 2 : 1);
+    if (source < 3 || source > 4 || (contract != 1 && !(source == 3 && (contract == 2 || contract == 3)))) return false;
     m->kind = source - 3;
     if (source == 4) {
         if (!seq_rhythm_valid(&m->rhythm) || m->rhythm.ratchet) return false;
@@ -116,14 +127,16 @@ static bool component_codec(seq_module_t *m, module_codec_t *c) {
         for (uint8_t n = 0; n < 8; n++)
             e->pool[n] = (int8_t)byte(c, e->pool[n]);
     }
-    if (m->kind == SEQ_MODULE_EUCLID) m->config.euclid.pitch_mode = contract == 2 ? byte(c, m->config.euclid.pitch_mode) : 1;
+    if (m->kind == SEQ_MODULE_EUCLID) m->config.euclid.pitch_mode = contract >= 2 ? byte(c, m->config.euclid.pitch_mode) : 1;
+    if (contract < 3 && m->config.euclid.pitch_mode > 1) return false;
+    if (contract == 3) palette_qualities_codec(m, c);
     return c->ok && seq_module_valid(m);
 }
 static bool codec(seq_module_t *m, module_codec_t *c) {
     if (byte(c, 'M') != 'M') return false;
-    uint8_t version = byte(c, m->composed ? 2 : m->kind == SEQ_MODULE_EUCLID && !m->config.euclid.pitch_mode ? 3 : 1);
+    uint8_t version = byte(c, m->composed ? 2 : chord_palette_contract(m) ? 4 : m->kind == SEQ_MODULE_EUCLID && !m->config.euclid.pitch_mode ? 3 : 1);
     if (version == 2) return component_codec(m, c);
-    if (version != 1 && version != 3) return false;
+    if (version != 1 && version != 3 && version != 4) return false;
     m->kind = byte(c, m->kind);
     if (m->kind == SEQ_MODULE_CHORD_BANK) return version == 1 && discard_bank(m, c);
     if (m->kind == SEQ_MODULE_EUCLID) {
@@ -145,7 +158,9 @@ static bool codec(seq_module_t *m, module_codec_t *c) {
     } else
         return false;
     if (version == 3 && m->kind != SEQ_MODULE_EUCLID) return false;
-    if (m->kind == SEQ_MODULE_EUCLID) m->config.euclid.pitch_mode = version == 3 ? byte(c, m->config.euclid.pitch_mode) : 1;
+    if (m->kind == SEQ_MODULE_EUCLID) m->config.euclid.pitch_mode = version >= 3 ? byte(c, m->config.euclid.pitch_mode) : 1;
+    if (version < 4 && m->config.euclid.pitch_mode > 1) return false;
+    if (version == 4) palette_qualities_codec(m, c);
     return c->ok && seq_module_valid(m);
 }
 bool seq_module_encode(const seq_module_t *m, uint8_t *data, uint16_t *size) {
