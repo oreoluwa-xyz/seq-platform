@@ -922,12 +922,14 @@ static void test_global_tempo(void) {
     seq_chord_event_t chord=seq_chord_draft[0];assert(!seq_encoder_update(0,false));assert(bpm==125);assert(!memcmp(&chord,&seq_chord_draft[0],sizeof(chord)));
     cc_session.active=true;cc_session.track=0;cc_session.mapping_index=0;uint8_t cc=cc_values[0][0];
     assert(seq_cc_encoder_update(0,true));assert(bpm==126 && cc_values[0][0]==cc);cc_session.active=false;
-    switch_state.held=true;uint8_t swing=seq_timing_swing;seq_encoder_update(0,true);assert(bpm==127 && seq_timing_swing==swing);switch_state.held=false;
-    seq_scale_editing=true;seq_scale_pending=(seq_scale_context_t){1,2,3};seq_encoder_update(0,true);assert(bpm==128 && seq_scale_pending.root==2 && seq_scale_pending.kind==3);seq_scale_editing=false;
-    euclid_param_mode=EUCLID_PARAM_MODE_FILLS;uint16_t fills=euclid_tracks[0].fills;seq_encoder_update(0,true);assert(bpm==129 && euclid_tracks[0].fills==fills);euclid_param_mode=EUCLID_PARAM_MODE_NONE;
-    record_state.armed=true;seq_encoder_update(0,true);assert(bpm==130 && record_state.armed);record_state.armed=false;
-    seq_external_clock=true;seq_encoder_update(0,true);assert(bpm==130);seq_external_clock=false;
-    seq_transfer_active=true;seq_encoder_update(0,true);assert(bpm==130);seq_transfer_active=false;
+    key(KC_LCTL,false);key(KC_SPC,true);key(KC_LCTL,true);
+    uint8_t swing=seq_timing_swing;seq_encoder_update(0,true);
+    assert(bpm==126 && seq_timing_swing==swing && seq_track_length_steps(0)==17);key(KC_SPC,false);
+    seq_scale_editing=true;seq_scale_pending=(seq_scale_context_t){1,2,3};seq_encoder_update(0,true);assert(bpm==127 && seq_scale_pending.root==2 && seq_scale_pending.kind==3);seq_scale_editing=false;
+    euclid_param_mode=EUCLID_PARAM_MODE_FILLS;uint16_t fills=euclid_tracks[0].fills;seq_encoder_update(0,true);assert(bpm==128 && euclid_tracks[0].fills==fills);euclid_param_mode=EUCLID_PARAM_MODE_NONE;
+    record_state.armed=true;seq_encoder_update(0,true);assert(bpm==129 && record_state.armed);record_state.armed=false;
+    seq_external_clock=true;seq_encoder_update(0,true);assert(bpm==129);seq_external_clock=false;
+    seq_transfer_active=true;seq_encoder_update(0,true);assert(bpm==129);seq_transfer_active=false;
     bpm=400;seq_encoder_update(0,true);assert(bpm==400);bpm=10;seq_encoder_update(0,false);assert(bpm==10);
     key(KC_LCTL,false);assert(!seq_cc_encoder_update(0,true));
     reset();assert(!seq_cc_encoder_update(0,true));assert(seq_encoder_update(0,true));
@@ -1183,13 +1185,15 @@ static void test_step_hold(void) {
     test_now+=400;key(k,true);key(KC_ESC,true);key(KC_ESC,false);key(k,false);assert(mel_track_event_count(0)==1 && !step_edit.active);
     test_now+=400;key(k,true);seq_backup_request(1,0,0,NULL,0);key(k,false);assert(!seq_step_hold.active && mel_track_event_count(0)==1);seq_backup_request(7,0,0,NULL,0);
 }
+#include "test_seq_navigation.inc"
+
 static void test_harmony_shortcut(void) {
     reset();seq_enter(test_now);
     uint8_t before = seq_harmony_request;
     key(KC_LCTL,true);key(KC_LSFT,true);key(KC_SPC,true);key(KC_SPC,true);
-    assert(seq_harmony_request == (uint8_t)(before+1) && !seq_scale_editing && !switch_state.held);
+    assert(seq_harmony_request == before && !seq_scale_editing && !switch_state.held);
     key(KC_LCTL,false);key(KC_LSFT,false);key(KC_SPC,false);
-    assert(!seq_harmony_shortcut_held && !switch_state.held);
+    assert(seq_harmony_request == (uint8_t)(before+1) && !seq_ctrl_space_held && !switch_state.held);
     seq_backup_request(17,0,0,NULL,0);
     assert(seq_visual_image[638] == 255 && seq_visual_image[639] == (uint8_t)(before+1));
     seq_harmony_request=255;
@@ -2409,6 +2413,9 @@ int main(int argc, char **argv) {
     test_timing_and_external();
     test_harmony_capture();
     test_harmony_shortcut();
+    test_navigation_length();
+    test_navigation_guards();
+    test_navigation_double_and_follow();
     test_scale_bound_chords();
     test_firmware_identity();
     test_step_hold();
@@ -2454,5 +2461,5 @@ int main(int argc, char **argv) {
     test_euclid_picked_notes();
     test_transport_restart();
     test_bounded_save();
-    puts("seq_engine: 75 regression groups passed");
+    puts("seq_engine: 78 regression groups passed");
 }

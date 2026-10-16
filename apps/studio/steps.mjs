@@ -5,7 +5,7 @@ import {noteName} from './module.mjs?v=8c4bcd2da4';
 export function liveBarLabel(state){
   const start=state.bar*16+1,end=Math.min((state.bar+1)*16,state.length),playBar=Math.floor(state.step/16);
   return `VIEW BAR ${state.bar+1} / ${Math.ceil(state.length/16)} · STEPS ${start}–${end}`+
-    (state.active&&state.running&&playBar!==state.bar?` · Playing bar ${playBar+1} · Space + = to follow`:'');
+    (state.active&&state.running&&playBar!==state.bar?` · Playing bar ${playBar+1} · Space + F to follow`:'');
 }
 
 export function renderLiveSteps(root,state,ready,onUsePalette){

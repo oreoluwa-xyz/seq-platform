@@ -611,7 +611,7 @@ console.log('Custom chords, explicit bank roots, adoption, quantization recovery
   chord[24]=1;monitor.stopped=false;await monitor.tick();monitor.stop();assert.equal(states[0].bar,1);assert.equal(states[0].chordMode.bar,1);
   const {liveBarLabel}=await import('./steps.mjs?v=175bf85458');
   assert.match(liveBarLabel(states[0]),/VIEW BAR 2 \/ 2 · STEPS 17–32/);
-  assert.match(liveBarLabel({...states[0],bar:0}),/Playing bar 2 · Space \+ = to follow/);
+  assert.match(liveBarLabel({...states[0],bar:0}),/Playing bar 2 · Space \+ F to follow/);
   assert.doesNotMatch(liveBarLabel({...states[0],bar:0,running:false}),/Playing/);
 }
 console.log('Multi-bar live view, inactive chord paging and cross-snapshot bar transitions passed.');
@@ -816,3 +816,14 @@ console.log('Variation validation, protocol, project persistence and chord-works
   s.palette.held=s.palette.shift=true;assert(paletteWantsView(previous,snap()),'Editing another track opens its palette');
 }
 console.log('Palette source-slot mapping and automatic editor navigation passed.');
+
+{
+  const {controlsFor}=await import('./keyboard.mjs?v=11bbe2f648');
+  const nav=controlsFor('navigation');
+  assert.equal(nav.F.label,'Follow');
+  assert.match(nav.F.detail,/Space \+ F/);
+  assert.equal(nav['='].label,'Double length');
+  assert.match(nav['='].detail,/Shift.*empty/);
+  assert.match(nav.Knob.detail,/Ctrl \+ Space.*one step.*Shift.*16 steps/);
+}
+console.log('Space navigation, length and doubling help passed.');

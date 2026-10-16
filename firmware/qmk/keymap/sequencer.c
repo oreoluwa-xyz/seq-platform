@@ -15,7 +15,7 @@ static bool seq_scale_editing;
 static uint16_t seq_scale_revision;
 static uint8_t seq_ctrl_mask;
 static uint8_t seq_harmony_request;
-static bool seq_harmony_shortcut_held;
+static bool seq_ctrl_space_held, seq_ctrl_space_used, seq_ctrl_space_harmony, seq_ctrl_space_ready;
 
 #include "eeconfig.h"
 #include "eeprom.h"
@@ -3887,6 +3887,7 @@ void seq_mode_on_load(void) {
     seq_palette_toggle_held = false;
     seq_scale_revision = 0;
     seq_ctrl_mask = 0;
+    seq_ctrl_space_held = seq_ctrl_space_used = seq_ctrl_space_harmony = seq_ctrl_space_ready = false;
     memset(seq_modules, 0, sizeof(seq_modules));
     memset(seq_variations, 0, sizeof(seq_variations));
     memset(seq_variation_queued, 0, sizeof(seq_variation_queued));
@@ -4117,7 +4118,7 @@ static uint8_t home_led        = NO_LED;
 static uint8_t grave_led       = NO_LED;
 static uint8_t backslash_led   = NO_LED;
 static uint8_t esc_led         = NO_LED;
-static uint8_t equal_led       = NO_LED;
+static uint8_t follow_led      = NO_LED;
 static uint8_t confirm_led_yes = NO_LED;
 static uint8_t confirm_led_no  = NO_LED;
 static bool    leds_discovered = false;
@@ -5043,7 +5044,7 @@ static void discover_seq_leds(void) {
     grave_led       = led_index_for_keycode(KC_GRV);
     backslash_led   = led_index_for_keycode(KC_BSLS);
     esc_led         = led_index_for_keycode(KC_ESC);
-    equal_led       = led_index_for_keycode(KC_EQUAL);
+    follow_led      = led_index_for_keycode(KC_F);
     confirm_led_yes = led_index_for_keycode(KC_Y);
     confirm_led_no  = led_index_for_keycode(KC_N);
     option_leds[0]  = led_index_for_keycode(KC_LALT);
@@ -5633,6 +5634,7 @@ static void seq_enter(uint32_t now) {
 }
 
 static void seq_exit(void) {
+    seq_ctrl_space_used = true;
     seq_palette_cancel();
     seq_loop_held = false;
     seq_loop_set(0, timer_read32());
@@ -6112,6 +6114,28 @@ void seq_midi_song_position(uint16_t position) {
     if (!seq_transfer_active) seq_external_song_position = position;
 }
 
+static bool seq_navigation_can_resize(void) {
+    return seq_live_can_select_without_space() && !record_state.armed && !seq_track_confirmation_active() &&
+        !cc_session.active && !cc_mode.held && (!switch_state.held || switch_state.stage == SEQ_SWITCH_STAGE_ROOT);
+}
+
+/* Length takes precedence over tempo only while Space is held. */
+static bool seq_length_encoder_update(uint8_t index, bool clockwise) {
+    bool control = (seq_ctrl_mask | get_mods()) & (MOD_BIT(KC_LCTL) | MOD_BIT(KC_RCTL));
+    if (index != 0 || !seq_state.active || (!seq_ctrl_space_held && !(switch_state.held && control))) return false;
+    seq_ctrl_space_used = true;
+    switch_state.consumed = true;
+    if (!control || (seq_ctrl_space_held && !seq_ctrl_space_ready) || !seq_navigation_can_resize()) return true;
+    int32_t delta = clockwise ? 1 : -1;
+    if (seq_shift_active() || (get_mods() & (MOD_BIT(KC_LSFT) | MOD_BIT(KC_RSFT)))) delta *= SEQ_STEPS_PER_BAR;
+    int32_t next = (int32_t)seq_track_length_steps(view_slot) + delta;
+    if (next < 1) next = 1;
+    if (next > SEQ_MAX_STEPS) next = SEQ_MAX_STEPS;
+    seq_track_set_steps(view_slot, (uint16_t)next);
+    seq_track_velocity_preview(view_slot, false, (uint16_t)next, timer_read32());
+    return true;
+}
+
 /* Global tempo takes priority over performance editors, including CC dispatch. */
 static bool seq_tempo_encoder_update(uint8_t index, bool clockwise) {
     if (index != 0 || !seq_state.active || !((seq_ctrl_mask | get_mods()) & (MOD_BIT(KC_LCTL) | MOD_BIT(KC_RCTL)))) return false;
@@ -6144,6 +6168,7 @@ static bool seq_loop_encoder_update(uint8_t index, bool clockwise) {
 }
 
 bool seq_cc_encoder_update(uint8_t index, bool clockwise) {
+    if (seq_length_encoder_update(index, clockwise)) return true;
     if (seq_tempo_encoder_update(index, clockwise)) return true;
     if (seq_loop_encoder_update(index, clockwise)) return true;
     if (seq_palette_encoder(index, clockwise)) return true;
@@ -6159,6 +6184,7 @@ bool seq_cc_encoder_update(uint8_t index, bool clockwise) {
 }
 
 bool seq_encoder_update(uint8_t index, bool clockwise) {
+    if (seq_length_encoder_update(index, clockwise)) return false;
     if (seq_tempo_encoder_update(index, clockwise)) return false;
     if (seq_loop_encoder_update(index, clockwise)) return false;
     if (seq_palette_encoder(index, clockwise)) return false;
@@ -6418,7 +6444,7 @@ bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
     if (!pressed && keycode == KC_CAPS) seq_modifiers &= (uint8_t)~SEQ_MOD_CAPS;
     if (!init_done) seq_housekeeping();
     if (seq_palette_key(keycode, pressed)) return false;
-    if (seq_harmony_key(keycode, pressed)) return false;
+    if (seq_ctrl_space_key(keycode, pressed)) return false;
     if (seq_scale_key(keycode, pressed)) return false;
     if (seq_chord_shortcut(keycode, pressed)) return false;
     if (seq_chord_key(keycode, pressed, now)) return false;
@@ -6589,6 +6615,14 @@ bool seq_pre_process(uint16_t keycode, keyrecord_t *record) {
                         return false;
                     }
                     if (keycode == KC_EQUAL) {
+                        switch_state.consumed = true;
+                        if (seq_navigation_can_resize()) {
+                            bool blank = seq_shift_active() || (get_mods() & (MOD_BIT(KC_LSFT) | MOD_BIT(KC_RSFT)));
+                            seq_track_double_length(view_slot, !blank);
+                        }
+                        return false;
+                    }
+                    if (keycode == KC_F) {
                         follow_mode = !follow_mode;
                         seq_mark_dirty();
                         if (follow_mode) {
@@ -8064,15 +8098,15 @@ bool seq_rgb_matrix_indicators(uint8_t led_min, uint8_t led_max) {
         }
     }
 
-    if (equal_led != NO_LED && equal_led >= led_min && equal_led < led_max) {
+    if (switch_state.held && follow_led != NO_LED && follow_led >= led_min && follow_led < led_max) {
         if (follow_mode) {
             uint8_t v = triangle_wave(now, 360U, 40, 255);
-            rgb_matrix_set_color(equal_led, 40, v, 255);
+            rgb_matrix_set_color(follow_led, 40, v, 255);
         } else if (seq_state.active) {
             uint8_t v = triangle_wave(now, 480U, 0, 255);
-            rgb_matrix_set_color(equal_led, v, (uint8_t)(v / 4), (uint8_t)(v / 4));
+            rgb_matrix_set_color(follow_led, v, (uint8_t)(v / 4), (uint8_t)(v / 4));
         } else {
-            rgb_matrix_set_color(equal_led, 0, 0, 0);
+            rgb_matrix_set_color(follow_led, 0, 0, 0);
         }
     }
 

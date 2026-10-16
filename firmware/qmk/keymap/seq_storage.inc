@@ -627,6 +627,7 @@ void seq_backup_request(uint8_t command, uint8_t object, uint16_t offset, const 
             seq_flush_pending_erase();
             seq_transport_stop(timer_read32());
             seq_scale_editing = false; /* A project transfer cancels pending scale edits. */
+            seq_ctrl_space_used = true;
             seq_transfer_active = true;
             seq_transfer_length = seq_transfer_received = 0;
             seq_harmony_source_size = 0;

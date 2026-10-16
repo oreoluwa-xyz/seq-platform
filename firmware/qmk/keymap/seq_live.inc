@@ -67,11 +67,15 @@ static void seq_live_snapshot(uint8_t *out) {
     seq_live_u16(out + 58, step_edit.active ? step_edit.local_step : UINT16_MAX);
 }
 
-static bool seq_live_can_select(void) {
+static bool seq_live_can_select_without_space(void) {
     if (seq_loop_held || seq_palette_digit_held || seq_palette_type_held) return false;
-    if (seq_chord_held || seq_chord_note_held || seq_step_hold.active || seq_scale_editing || seq_transfer_active || step_edit.active || chord_capture.active || record_state.capturing || note_hold_mask || cmd_state.held || switch_state.held) return false;
+    if (seq_chord_held || seq_chord_note_held || seq_step_hold.active || seq_scale_editing || seq_transfer_active || step_edit.active || chord_capture.active || record_state.capturing || note_hold_mask || cmd_state.held) return false;
     for (uint8_t i = 0; i < 12; i++) {
         if (track_held[i] || melodic_key_mask[i]) return false;
     }
     return true;
+}
+
+static bool seq_live_can_select(void) {
+    return !switch_state.held && !seq_ctrl_space_held && seq_live_can_select_without_space();
 }

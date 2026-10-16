@@ -1,7 +1,7 @@
 {
   "name": "seq-desktop",
   "productName": "SEQ",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": true,
   "description": "Floating desktop companion for the SEQ instrument workshop",
   "main": "main.cjs",

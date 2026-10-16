@@ -134,6 +134,15 @@ Euclid Mode
 
   Length & Duplication
 
+  - Ctrl + Space + knob changes the current track length by one step;
+    add either Shift for 16 steps. Clockwise expands with empty space;
+    counterclockwise trims content beyond the new end. Range: 1–2048.
+    Finish held edits and disarm recording first. This works with either clock source.
+  - Space + = doubles length and copies content; Space + Shift + = adds
+    an empty half. The Tab shortcuts below remain available.
+  - Tap Ctrl + Space / Ctrl + Shift + Space without turning the knob to
+    open Scale / Harmony on Space release. Space + knob still edits swing.
+
   - Hold a track key ~220 ms, type digits (1–128) to set its bar
     count, then release.
   - While holding a track key, tap Backspace to switch the length
@@ -149,10 +158,9 @@ Euclid Mode
       - Tap digits to jump to bars (0 = 10). Rapid taps multiply (e.g.
         Space+3 twice → bar 6). Hold Shift while tapping to double
         the target.
-      - Press = (while still holding Space) to toggle follow mode.
+      - Press F (while still holding Space) to toggle follow mode.
         When on, the view snaps to the playhead every step; when off,
-        you can scrub freely. The `=` key glows teal while follow is
-        engaged and pulses red when you’re viewing a different bar.
+        you can scrub freely. While Space is held, `F` glows teal with follow enabled and pulses red with follow disabled.
       - Space + S + ~ returns to the default layout presets.
   - Bar LEDs (row 9,0,-,+,O,P,[,]) give a binary readout: cyan =
     viewed bar, orange = playhead, white = overlap. Esc pulses red
@@ -264,7 +272,7 @@ Live rhythm values can be edited directly in the UI. The ordered row is Q Steps,
 
 ### Global key, scale, and quantization
 
-While the sequencer is active, press **Ctrl + Space** to open Scale mode. Release any other held gestures first. Use the melodic note keys (Q, 2, W, 3, E, R, 5, T, 6, Y, 7, U) to choose C through B. Select **A Ionian, S Dorian, D Phrygian, F Lydian, G Mixolydian, H Aeolian, J Locrian, K Harmonic minor, L Harmonic major, ; Major pentatonic, ' Minor pentatonic**. The root lights orange, other scale tones green, and the selected mode violet. The virtual keyboard follows the same layout. When connected, Ctrl + Space also opens a live scale picker modal in the UI. It follows pending keyboard choices and closes after Enter applies or Esc cancels. Hide dismisses only the window. **Enter applies; Esc cancels; 0 toggles global scale on/off.** Picking a root or mode enables the pending scale. Playback continues with committed settings until Enter. The UI shows all eleven scales, highlights the pending choice and its notes live, and supports editing either the global scale or a track’s local scale. Harmonic scales have seven notes; pentatonic scales have five.
+While the sequencer is active, tap **Ctrl + Space** to open Scale mode on Space release. Turning the knob while held edits track length instead and suppresses the editor. Release any other held gestures first. Use the melodic note keys (Q, 2, W, 3, E, R, 5, T, 6, Y, 7, U) to choose C through B. Select **A Ionian, S Dorian, D Phrygian, F Lydian, G Mixolydian, H Aeolian, J Locrian, K Harmonic minor, L Harmonic major, ; Major pentatonic, ' Minor pentatonic**. The root lights orange, other scale tones green, and the selected mode violet. The virtual keyboard follows the same layout. When connected, Ctrl + Space also opens a live scale picker modal in the UI. It follows pending keyboard choices and closes after Enter applies or Esc cancels. Hide dismisses only the window. **Enter applies; Esc cancels; 0 toggles global scale on/off.** Picking a root or mode enables the pending scale. Playback continues with committed settings until Enter. The UI shows all eleven scales, highlights the pending choice and its notes live, and supports editing either the global scale or a track’s local scale. Harmonic scales have seven notes; pentatonic scales have five.
 
 Open **Scale** in the hardware panel to choose root and mode visually, audition the pending scale using the browser sound, then Apply global. The header’s Sound mute applies to auditions. Global scale starts off, preserving older projects. Per-track choices are **Follow global**, **Local key / scale**, or **Unconstrained**, with nearest, downward or upward snapping. Nearest ties snap down; at MIDI boundaries the nearest in-range scale tone is used. Apply track commits those settings.
 
@@ -273,7 +281,7 @@ Quantization runs after melodic pitch generation and the accumulator, without re
 
 ### Create a complementary chord track
 
-Open **Harmony workshop** with **Ctrl + Shift + Space**, or its button in the hardware live view. The keyboard shortcut requires the latest firmware and a connected UI; it opens the workshop without stopping playback. Finish held-note/recording gestures first. Ctrl + Space still opens global scale editing. For melody capture, select a melodic hardware track and choose **A captured melody**. This requires harmony-capture firmware. Click **Capture melody** to freeze the complete loop; capture stops transport. The source uses the highest projected voice at each step, including Euclid timing, recorded overrides, palette choices and scale quantization. Probability, mutes and accumulator movement are excluded, matching the projected live-note view.
+Open **Harmony workshop** by tapping **Ctrl + Shift + Space** (release Space without turning the knob), or its button in the hardware live view. The keyboard shortcut requires the latest firmware and a connected UI; it opens the workshop without stopping playback. Finish held-note/recording gestures first. Ctrl + Space still opens global scale editing. For melody capture, select a melodic hardware track and choose **A captured melody**. This requires harmony-capture firmware. Click **Capture melody** to freeze the complete loop; capture stops transport. The source uses the highest projected voice at each step, including Euclid timing, recorded overrides, palette choices and scale quantization. Probability, mutes and accumulator movement are excluded, matching the projected live-note view.
 
 Choose **Scale chords** to build three-note chords by alternating scale degrees, or **Closest bank chord** to use a chosen track's local chord-bank draft. The bank provider preserves its pitch classes, using octave placement and inversions. Both prefer a chord containing the melody anchor, then smooth movement from the previous chord. When no exact match exists, the preview says “nearest match.” Pentatonic harmony uses alternating degrees of the five-note scale; it is not restricted to conventional major/minor triads.
 
@@ -314,7 +322,7 @@ Harmony workshop → **An existing chord track** → **Read chord track** reads 
 
 ### Global tempo and scale conformity
 
-**Ctrl + knob** changes global tempo from every active sequencer mode; add Shift for 5 BPM. External-clock followers keep their tempo in the DAW. In the Harmony workshop, read a chord track and use **Apply global scale to all chords…** for a cancellable, auditionable before/after preview. Roots snap to the nearest scale tone, triads/sevenths are rebuilt from scale degrees, and timing/velocity stay intact. Applying edits the draft; the existing backed-up write sends it to hardware and checks both source and global-scale freshness.
+**Ctrl + knob** changes global tempo from every active sequencer mode; add Shift for 5 BPM. With Space held, these gestures change track length by 1 or 16 steps instead. External-clock followers keep their tempo in the DAW. In the Harmony workshop, read a chord track and use **Apply global scale to all chords…** for a cancellable, auditionable before/after preview. Roots snap to the nearest scale tone, triads/sevenths are rebuilt from scale degrees, and timing/velocity stay intact. Applying edits the draft; the existing backed-up write sends it to hardware and checks both source and global-scale freshness.
 
 
 ### Custom chord steps and scale quantization
