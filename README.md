@@ -32,6 +32,8 @@ python3 tools/workspace.py desktop
 
 This compatibility assembly preserves existing relative paths while we extract shared packages incrementally. It is not a requirement that future Ableton/Rack backends use QMK.
 
+For remote feature work, see the [cloud setup and development handoff](docs/cloud-handoff.md).
+
 ## Firmware and desktop releases
 
 ```sh
