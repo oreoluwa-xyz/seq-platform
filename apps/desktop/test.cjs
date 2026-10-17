@@ -79,3 +79,73 @@ test('Low performance strip preserves placement across the Dock reserved area',(
     assert.equal(fitBounds({...saved,y:900},screen,true).y,712);
     assert.equal(fitBounds(saved,screen,false).y,527);
 });
+
+
+test('Compact placement survives Dock changes, negative monitors and topology recovery', () => {
+    const primary = {bounds:{x:0,y:0,width:1512,height:982},workArea:{x:0,y:25,width:1512,height:902}};
+    const saved = {x:35,y:712,width:1440,height:270};
+    for (const workArea of [primary.workArea, {x:80,y:25,width:1432,height:957}, {x:0,y:25,width:1432,height:957}, {x:0,y:25,width:1512,height:957}]) {
+        assert.deepEqual(fitBounds(saved,[{...primary,workArea}],true),saved);
+    }
+    const left = {bounds:{x:-1920,y:-300,width:1920,height:1080},workArea:{x:-1920,y:-275,width:1920,height:1000}};
+    const edge = {x:-1100,y:510,width:1200,height:270};
+    assert.deepEqual(fitBounds(edge,[primary,left],true),{...edge,x:-1200});
+    assert.deepEqual(fitBounds(edge,[left,primary],true),{...edge,x:-1200});
+    const negative = {...edge,x:-1500,width:1000};
+    assert.deepEqual(fitBounds(negative,[primary,left],true),negative);
+    const recovered = fitBounds(negative,[primary],true);
+    assert.deepEqual(recovered,{...negative,x:0});
+    assert.deepEqual(fitBounds(recovered,[primary],true),recovered);
+    const small = [{bounds:{x:0,y:0,width:480,height:240},workArea:{x:0,y:25,width:480,height:180}}];
+    assert.deepEqual(fitBounds(saved,small,true),{x:0,y:25,width:480,height:215});
+    assert.deepEqual(fitBounds({...saved,width:-1},[primary],true),fitBounds(null,[primary],true));
+});
+
+test('Startup re-applies saved geometry after native show and does not persist transient placement', async () => {
+    const vm = require('node:vm');
+    const {EventEmitter} = require('node:events');
+    const saved = {x:35,y:712,width:1440,height:270};
+    const display = {bounds:{x:0,y:0,width:1512,height:982},workArea:{x:0,y:25,width:1512,height:902}};
+    const writes = [];
+    class FakeWindow extends EventEmitter {
+        constructor(options) {
+            super(); this.bounds = {...saved,y:657}; // Native creation clamp.
+            this.webContents = new EventEmitter();
+            Object.assign(this.webContents,{setWindowOpenHandler(){},send(){}});
+        }
+        isDestroyed(){return false;} isMinimized(){return this.minimized || false;}
+        isMaximized(){return false;} isFullScreen(){return false;}
+        getBounds(){return {...this.bounds};} setMinimumSize(){}
+        setBounds(bounds){this.bounds={...bounds};this.emit('move');this.emit('resize');}
+        setAlwaysOnTop(){} setVisibleOnAllWorkspaces(){}
+        async loadURL(){this.emit('move');}
+        show(){this.bounds.y=657;this.emit('move');}
+    }
+    const electron = {app:{isPackaged:false,setName(){}},BrowserWindow:FakeWindow,
+        Menu:{buildFromTemplate:()=>({getMenuItemById:()=>({})}),setApplicationMenu(){}},
+        screen:{getAllDisplays:()=>[display]}};
+    const context = vm.createContext({require: name => name==='electron' ? electron : name==='node:fs' ? {
+        writeFileSync:(_path,data)=>writes.push(JSON.parse(data)),renameSync(){}
+    } : name.startsWith('./') ? require(name) : require(name),
+    process:{platform:'linux',argv:[]},__dirname,console,setTimeout,clearTimeout});
+    const source = fs.readFileSync(path.join(__dirname,'main.cjs'),'utf8').split('if (!app.requestSingleInstanceLock())')[0];
+    vm.runInContext(source + `\nstate=normalizeState(${JSON.stringify({layoutVersion:3,compact:true,performance:saved})});statePath='/unused';service={origin:'http://localhost'};`,context);
+    await vm.runInContext('createWindow()',context);
+    assert(writes.length>0);
+    assert(writes.every(state=>JSON.stringify(state.performance)===JSON.stringify(saved)));
+    vm.runInContext('window.setBounds({x:50,y:700,width:1400,height:270});save()',context);
+    assert.deepEqual(writes.at(-1).performance,{x:50,y:700,width:1400,height:270});
+    vm.runInContext('window.minimized=true;window.bounds.y=-10000;save()',context);
+    assert.equal(writes.at(-1).performance.y,700);
+    // Disk roundtrip through the same creation path, including native clamping.
+    vm.runInContext(`state=normalizeState(${JSON.stringify(writes.at(-1))})`,context);
+    await vm.runInContext('createWindow()',context);
+    assert.equal(writes.at(-1).performance.y,700);
+    vm.runInContext('setCompact(false);setCompact(true)',context);
+    assert.deepEqual(writes.at(-1).performance,{x:50,y:700,width:1400,height:270});
+    display.bounds = {x:0,y:0,width:640,height:480};
+    display.workArea = {x:0,y:25,width:640,height:400};
+    vm.runInContext('recoverPlacement()',context);
+    assert.deepEqual(writes.at(-1).performance,{x:0,y:210,width:640,height:270});
+    vm.runInContext('clearTimeout(saveTimer)',context);
+});
