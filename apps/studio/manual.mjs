@@ -33,7 +33,7 @@ function inline(parent,text) {
   }
   parent.append(document.createTextNode(text.slice(last)));
 }
-function renderSection(section) {
+export function renderSection(section) {
   const fragment=document.createDocumentFragment(),heading=document.createElement('h3');heading.textContent=section.title;fragment.append(heading);
   const lines=section.lines;let i=0;
   while(i<lines.length){
