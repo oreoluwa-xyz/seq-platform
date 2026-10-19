@@ -181,3 +181,5 @@ body:not(.desktop-performance) #tracks .track-mute{grid-column:2/-1;grid-row:2}
 .live-step.palette-match{outline:2px solid #bb82df;outline-offset:-2px}
 .live-step.palette-match .step-palette-slot{color:#e6c5ff;font-weight:700;opacity:1}
 .palette-select:focus-visible{outline:2px solid #9857bf;outline-offset:2px}
+
+.help-profile{border-block:1px solid var(--line);padding:10px 0;margin-bottom:14px}.help-profile label{display:flex;gap:12px;align-items:center;font-size:11px;flex-wrap:wrap}.help-profile select{width:auto;max-width:100%;font-size:11px}.help-profile-status{font-size:11px;color:var(--muted);margin:7px 0}.space-guide summary{cursor:pointer;font-size:12px}.space-guide dl{display:grid;grid-template-columns:minmax(120px,1fr) 2fr;gap:7px 15px;font-size:11px}.space-guide dt{font-family:var(--mono)}.space-guide dd{margin:0}.space-control-hint{font:10px var(--mono);padding:6px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-top:1px solid var(--line)}.desktop-performance .space-control-hint{position:fixed;bottom:4px;left:8px;right:8px;z-index:40;background:var(--paper);border:1px solid var(--line);pointer-events:none}

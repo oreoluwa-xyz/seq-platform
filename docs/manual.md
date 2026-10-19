@@ -1,5 +1,11 @@
 **Sequencer Manual**
 
+**Choosing a control reference**
+
+In the manual’s keyboard map, **Control reference** selects the shortcut set. In Studio, **Connected keyboard / unknown** uses the reported firmware identity for recognized builds and lists supported live features. If the identity is unavailable, unrecognized, or stale, it says so rather than guessing. Choose your known control version manually to explore it; a manual selection is reference help, not a verification of the connected device.
+
+The public webpage starts with current controls. Its reference selection is included in shared map and guide links. **Space controls** expands a compact shortcut list. In the connected companion, a single-line hint appears while the reported hardware mode is Space navigation and disappears when that mode ends or live state is lost. It does not send MIDI commands or change the keyboard.
+
 **Firmware version and control changes**
 
 This guide covers the current keyboard controls: Space-based navigation and track length, whole-track mute, chord palettes, and the chord-aware accumulator. These are the controls on the updated keyboard.

@@ -1,3 +1,4 @@
+import {readHelpIdentity,renderSpaceHint} from './help-profile.mjs?v=feature-help-1';
 import {renderPerformance} from './performance.mjs?v=e8da829dbf';
 import {renderVariation} from './variation.mjs?v=90308f36a3';
 import {paletteQualityPayload} from './palette-chords.mjs?v=b0a37ac77a';
@@ -14,7 +15,7 @@ import {renderScale,renderScaleModal} from './scale.mjs?v=bcc8228f15';
 import {renderRhythmControls,rhythmEditPayload} from './rhythm-controls.mjs';
 import {renderPalette,paletteRemovePayload} from './palette.mjs?v=831d6385ec';
 import {renderHardwareOrbit} from './orbit.mjs?v=fe48e35c75';
-import {setupManual} from './manual.mjs?v=b26c5caffa';
+import {setupManual} from './manual.mjs?v=feature-help-1';
 import {defaultModule,validateModule,encodeModule,decodeModule,composeModule,splitModule,rhythmComponent,assertSupported,chordNotes,noteName,parseNotes,euclidHit} from './module.mjs?v=8c4bcd2da4';
 import {SequencerConnection,sameBytes,projectFile} from './midi.mjs?v=3103146cad';
 import {LiveMonitor} from './live.mjs?v=b5fe2a212b';
@@ -28,6 +29,7 @@ if(document.querySelector('meta[name="seq-hosting"][content="static"]')) {
   }
 }
 let manual=null;
+let helpIdentity=null;
 let liveMonitor=null, liveState=null, liveReady=false, queuedHardwareState=null;
 let lastHarmonyRequest=null;
 let selected=0, connection=null, access=null, capabilities=null, busy=false, toastTimer, audio;
@@ -254,13 +256,13 @@ $('attach').onclick=async()=>{
   if(!input||!output){notice('Select both keyboard MIDI ports.',true);return;}
   $('connection-error').textContent='Connecting…';
   $('attach').disabled=true;let candidate;
-  try{await input.open();await output.open();candidate=new SequencerConnection(input,output);capabilities=await candidate.capabilities();connection=candidate;startLive(candidate);$('connection-dialog').close();$('connection').className='connection live';$('connection').innerHTML='<i></i> Connected · module v1';$('connect').textContent='Disconnect';render();notice('Connected. Local drafts are unchanged. Read a track to load its device settings.');}
+  try{await input.open();await output.open();candidate=new SequencerConnection(input,output);capabilities=await candidate.capabilities();helpIdentity=await readHelpIdentity(candidate);connection=candidate;startLive(candidate);$('connection-dialog').close();$('connection').className='connection live';$('connection').innerHTML='<i></i> Connected · module v1';$('connect').textContent='Disconnect';render();notice('Connected. Local drafts are unchanged. Read a track to load its device settings.');}
   catch(error){await candidate?.close();$('connection-error').textContent=error.message;notice(error.message,true);}finally{$('attach').disabled=false;}
 };
-function stopLive(){lastHarmonyRequest=null;liveMonitor?.stop();liveMonitor=null;liveState=null;liveReady=false;queuedHardwareState=null;renderLive();$('live-status').textContent='Connect to follow your keyboard';}
+function stopLive(){helpIdentity=null;lastHarmonyRequest=null;liveMonitor?.stop();liveMonitor=null;liveState=null;liveReady=false;queuedHardwareState=null;renderLive();$('live-status').textContent='Connect to follow your keyboard';}
 function startLive(device){
-  stopLive();$('live-status').textContent='Reading hardware state…';
-  liveMonitor=new LiveMonitor(device,{canPoll:()=>!busy&&!document.hidden,wantHealth:()=>true,wantVisual:()=>!!window.seqDesktop||manual?.wantsVisual(),onState:state=>{
+  const identity=helpIdentity;stopLive();helpIdentity=identity;$('live-status').textContent='Reading hardware state…';
+  liveMonitor=new LiveMonitor(device,{canPoll:()=>!busy&&!document.hidden,wantHealth:()=>true,wantVisual:()=>true,onState:state=>{
     liveState=state;liveReady=true;
     const openRequested=harmonyRequestChanged(lastHarmonyRequest,state.harmonyRequest);lastHarmonyRequest=state.harmonyRequest;
     if(openRequested)openHarmony();
@@ -305,7 +307,9 @@ function renderLive(){
   renderChordMode($('live-chord-mode'),liveState,liveReady&&!busy);
   renderCC($('cc-dock'),liveState,liveReady&&!busy);
   renderScaleModal($('scale-dialog'),liveState,liveReady&&!busy,editScale,auditionScale);
+  manual?.updateIdentity(helpIdentity,liveReady&&!busy,liveState);
   manual?.updateLive(liveState,liveReady&&!busy);
+  renderSpaceHint($('space-control-hint'),helpIdentity,liveState,liveReady,busy);
   $('live-content').hidden=!liveState;
   document.querySelector('.live-panel').classList.toggle('stale',!!liveState&&!liveReady);
   if(!liveState)return;

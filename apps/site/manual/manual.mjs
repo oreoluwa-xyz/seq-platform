@@ -1,11 +1,14 @@
-import {setupKeyboard} from '../ui/keyboard.mjs';
-import {manualSections, renderSection} from '../ui/manual.mjs';
+import {setupHelpProfile,profileSections} from '../ui/help-profile.mjs?v=feature-help-1';
+import {setupKeyboard} from '../ui/keyboard.mjs?v=feature-help-1';
+import {manualSections, renderSection} from '../ui/manual.mjs?v=feature-help-1';
 
 const root = document.querySelector('#keyboard-guide');
 root.querySelector('#keyboard-live').checked = false;
 root.querySelector('.keyboard-caption').textContent = 'Select a key to explore its gesture. Use arrow keys to move around the map. F1–F12 identify physical positions, including the Mac media row.';
 const paletteReference = document.querySelector('#reference-palette');
-const keyboard = setupKeyboard({getReferencePalette:()=>({chordSupported:true,mode:paletteReference.value==='notes'?'palette':'chords',editDigit:paletteReference.value==='quality'?1:null})});
+let keyboard;
+const profile=setupHelpProfile(root,()=>{keyboard?.refreshReference();if(keyboard)saveKeyboard();});
+keyboard = setupKeyboard({getProfile:()=>profile.profile(),getReferencePalette:()=>({chordSupported:true,mode:paletteReference.value==='notes'?'palette':'chords',editDigit:paletteReference.value==='quality'?1:null})});
 const search = document.querySelector('#guide-search');
 const nav = document.querySelector('#guide-sections');
 const content = document.querySelector('#guide-content');
@@ -18,12 +21,12 @@ function route() {
 function renderGuide() {
   const {params} = route();
   const query = search.value.trim().toLowerCase();
-  const matches = sections.filter(s => `${s.title}\n${s.lines.join('\n')}`.toLowerCase().includes(query));
+  const matches = profileSections(sections,profile.profile()).filter(s => `${s.title}\n${s.lines.join('\n')}`.toLowerCase().includes(query));
   const selected = matches.find(s => s.id === params.get('section')) || matches[0];
   nav.replaceChildren(...matches.map(section => {
     const a = document.createElement('a');
     a.textContent = section.title;
-    const params = new URLSearchParams({section: section.id});
+    const params = new URLSearchParams({section: section.id,profile:profile.profile()});
     if (query) params.set('q', search.value);
     a.href = `#guide?${params}`;
     a.setAttribute('aria-current', section === selected ? 'page' : 'false');
@@ -35,6 +38,7 @@ function renderGuide() {
 }
 function applyRoute() {
   applying = true;
+  profile.setReference(route().params.get('profile')||'current');
   const {view, params} = route();
   document.querySelector('#map-view').hidden = view !== 'keyboard';
   document.querySelector('#written-view').hidden = view !== 'guide';
@@ -54,6 +58,8 @@ function applyRoute() {
     search.value = params.get('q') || '';
     if (sections.length) renderGuide();
   }
+  document.querySelector('#guide-tab').href=`#guide?profile=${profile.profile()}`;
+  document.querySelector('#map-tab').href=`#keyboard?profile=${profile.profile()}`;
   applying = false;
 }
 function saveKeyboard() {
@@ -61,6 +67,9 @@ function saveKeyboard() {
   const params = new URLSearchParams({mode: root.querySelector('[data-mode][aria-pressed="true"]').dataset.mode, key: root.querySelector('[data-key][aria-pressed="true"]').dataset.key, os: root.querySelector('#keyboard-os').value});
   if (root.querySelector('#keyboard-grid').checked) params.set('grid', '4');
   params.set('palette', paletteReference.value);
+  params.set('profile',profile.profile());
+  document.querySelector('#guide-tab').href=`#guide?profile=${profile.profile()}`;
+  document.querySelector('#map-tab').href=`#keyboard?${params}`;
   history.replaceState(null, '', `#keyboard?${params}`);
 }
 paletteReference.addEventListener('change', () => {root.querySelector('[data-mode="euclid"]').click();keyboard.refreshReference();saveKeyboard();});
@@ -82,7 +91,7 @@ window.addEventListener('hashchange', applyRoute);
 applyRoute();
 async function loadGuide() {
   try {
-    const response = await fetch('../MANUAL.md');
+    const response = await fetch('../MANUAL.md',{cache:'no-cache'});
     if (!response.ok) throw Error('Manual unavailable');
     sections = manualSections(await response.text()).map((section, i, all) => {
       const base = slug(section.title) || 'section';

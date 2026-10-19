@@ -845,3 +845,5 @@ console.log('Space navigation, length and doubling help passed.');
   assert.equal(controlsFor('euclid','mac',false,true,false,{chordSupported:true,mode:'chords'})['1'].label,'Chord 1');
   assert.match(helpFor({id:'pitch.chord-bank',version:1}).compatibility,/Local authoring only/);
 }
+
+await import('./help-profile-test.mjs');

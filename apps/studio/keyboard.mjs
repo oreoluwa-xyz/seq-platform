@@ -1,3 +1,4 @@
+import {adaptControlHelp} from './help-profile.mjs?v=feature-help-1';
 import {paletteTypes,paletteTypeKeys,paletteTypeNames} from './palette-chords.mjs?v=b0a37ac77a';
 import {chordLabel} from './chord-mode.mjs?v=e16e3e7465';
 import {scaleNames,rootKeys,rootNames,modeKeys,scaleNotes} from './scale.mjs';
@@ -148,16 +149,17 @@ export function keyboardMarks(state,mode,gridEnabled=false){
   if(state.visual?.leds)for(const key of keyboardLayout){const [row,col]=key.matrix;const offset=(row*16+col)*3;marks[key.id].rgb=Array.from(state.visual.leds.slice(offset,offset+3));}
   return marks;
 }
-export function setupKeyboard({getReferencePalette=()=>null}={}){
+export function setupKeyboard({getReferencePalette=()=>null,getProfile=()=> 'current'}={}){
   const root=document.getElementById('keyboard-guide');
   let mode='drum',selected='F1',hardware=null,ready=false;
   const held=()=>!!(root.querySelector('#keyboard-live').checked&&ready&&hardware?.visual?.holdEdit);
   const ordered=()=>!root.querySelector('#keyboard-live').checked||!hardware?true:!!hardware.euclid?.orderedKeys;
   const board=root.querySelector('.keyboard-keys'),detail=root.querySelector('.keyboard-detail');
   const buttons=new Map();
+  const profileControls=(...args)=>adaptControlHelp(controlsFor(...args),mode,getProfile());
   const labelFor=id=>({LShift:'Shift',RShift:'Shift',RCtrl:'Ctrl',Mod1:root.querySelector('#keyboard-os').value==='mac'?'Option':'Win',Mod2:root.querySelector('#keyboard-os').value==='mac'?'Cmd':'Alt',Mod3:root.querySelector('#keyboard-os').value==='mac'?'Cmd':'Alt'})[id]||id;
   function inspect(id){
-    selected=id;const control=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette())[id];
+    selected=id;const control=profileControls(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette())[id];
     for(const [key,button] of buttons){button.setAttribute('aria-pressed',String(key===id));button.tabIndex=key===id?0:-1;}
     detail.replaceChildren();const cap=document.createElement('span');cap.className='detail-key';cap.textContent=labelFor(id);const text=document.createElement('div'),title=document.createElement('strong'),description=document.createElement('p');
     title.textContent=control?.label||'No mode-specific control';description.textContent=control?.detail||'This key has no dedicated control in this view. Other held-key combinations may still apply.';
@@ -176,8 +178,8 @@ export function setupKeyboard({getReferencePalette=()=>null}={}){
     };buttons.set(key.id,button);board.append(button);
   }
   function render(){
-    const config=modes.find(m=>m[0]===mode),map=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette());
-    root.querySelector('.keyboard-mode-title').textContent=config[2];root.querySelector('.keyboard-mode-help').textContent=held()?(mode==='drum-edit'?'Hold the step and turn the knob for Velocity. Release to finish.':'Hold the step and turn the knob for Length. Tap I Length, O Pitch or P Velocity while held. Release to finish.'):config[3];
+    const config=modes.find(m=>m[0]===mode),map=profileControls(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette());
+    root.querySelector('.keyboard-mode-title').textContent=config[2];root.querySelector('.keyboard-mode-help').textContent=getProfile()==='unknown'?'Choose a control reference version to explore this mode.':getProfile()==='legacy'&&mode==='navigation'?'Hold Space for bars, lane mutes, swing, saving and clock source. Space + = toggles Follow.':getProfile()==='legacy'&&mode==='scale'?'Ctrl + Space opens Scale. Choose root and mode; Enter applies, Esc cancels.':held()?(mode==='drum-edit'?'Hold the step and turn the knob for Velocity. Release to finish.':'Hold the step and turn the knob for Length. Tap I Length, O Pitch or P Velocity while held. Release to finish.'):config[3];
     root.querySelector('.keyboard-grid-option').hidden=mode!=='drum';
     root.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));
     for(const [id,button] of buttons){const control=map[id];button.dataset.group=control?.group||'unused';button.replaceChildren();const physical=document.createElement('span'),action=document.createElement('strong');physical.textContent=labelFor(id);action.textContent=control?.label||'·';button.append(physical,action);button.setAttribute('aria-label',`${labelFor(id)}: ${control?.label||'No mode-specific control'}`);}
@@ -189,7 +191,7 @@ export function setupKeyboard({getReferencePalette=()=>null}={}){
     const following=follow.checked&&!!hardware,live=following&&ready;
     root.classList.toggle('keyboard-following',live);root.classList.toggle('keyboard-stale',following&&!ready);
     const marks=keyboardMarks(live?hardware:null,mode,root.querySelector('#keyboard-grid').checked);
-    const currentControls=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette());
+    const currentControls=profileControls(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette());
     for(const [id,button] of buttons){
       const mark=marks[id];
       for(const state of ['current','hit','playhead','selected','sounding','running','armed'])button.classList.toggle(`key-${state}`,!!mark[state]);

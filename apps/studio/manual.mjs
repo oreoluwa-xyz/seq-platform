@@ -1,5 +1,6 @@
+import {setupHelpProfile,profileSections} from './help-profile.mjs?v=feature-help-1';
 import {helpFor,guideComponents,moduleFromLive} from './component-help.mjs?v=1b4a360ca4';
-import {setupKeyboard} from './keyboard.mjs?v=11bbe2f648';
+import {setupKeyboard} from './keyboard.mjs?v=feature-help-1';
 
 // A small, text-only renderer for the repository manual's Markdown subset.
 // Build DOM nodes rather than interpreting documentation as HTML.
@@ -70,7 +71,9 @@ export function renderSection(section) {
 }
 export function setupManual({getDraft}={}){
   const dialog=document.getElementById('manual-dialog'),search=document.getElementById('manual-search'),nav=document.getElementById('manual-sections'),content=document.getElementById('manual-content'),count=document.getElementById('manual-count');
-  const keyboard=setupKeyboard();
+  let keyboard;
+  const profile=setupHelpProfile(document.getElementById('keyboard-guide'),()=>{keyboard?.refreshReference();if(keyboard)queueMicrotask(render);});
+  keyboard=setupKeyboard({getProfile:()=>profile.profile()});
   let visual=true,trackView=false,hardware=null,hardwareReady=false,guideSignature='';
   const trackButton=document.getElementById('manual-track'),trackContent=document.getElementById('manual-track-content'),source=document.getElementById('manual-track-source');
   function renderTrack(){
@@ -107,11 +110,11 @@ export function setupManual({getDraft}={}){
   let sections=null,loading=null,selected=0,returnFocus=null;
   function render(){
     if(!sections)return;
-    const query=search.value.trim().toLowerCase(),matches=sections.map((s,i)=>({s,i})).filter(({s})=>`${s.title}\n${s.lines.join('\n')}`.toLowerCase().includes(query));
+    const query=search.value.trim().toLowerCase(),matches=profileSections(sections,profile.profile()).map((s,i)=>({s,i})).filter(({s})=>`${s.title}\n${s.lines.join('\n')}`.toLowerCase().includes(query));
     if(!matches.some(({i})=>i===selected))selected=matches[0]?.i;
     count.textContent=query?`${matches.length} matching section${matches.length===1?'':'s'}`:`${sections.length} sections`;
     nav.replaceChildren(...matches.map(({s,i})=>{const button=document.createElement('button');button.textContent=s.title;button.setAttribute('aria-current',i===selected?'page':'false');button.onclick=()=>{selected=i;render();content.scrollTop=0;content.focus();};return button;}));
-    content.replaceChildren(selected===undefined?document.createTextNode('No matching sections. Try “recording”, “chord”, or a key name.'):renderSection(sections[selected]));content.scrollTop=0;
+    content.replaceChildren(selected===undefined?document.createTextNode('No matching sections. Try “recording”, “chord”, or a key name.'):renderSection(profileSections(sections,profile.profile())[selected]));content.scrollTop=0;
   }
   async function open(){
     if(dialog.open){dialog.close();return;}
@@ -130,5 +133,5 @@ export function setupManual({getDraft}={}){
       event.preventDefault();if(!event.repeat)open();
     }
   });
-  return {refresh:()=>{if(dialog.open&&trackView)renderTrack();},updateLive:(state,ready)=>{keyboard.updateLive(state,ready);hardware=state;hardwareReady=ready;if(dialog.open&&trackView)renderTrack();},wantsVisual:()=>dialog.open&&visual&&keyboard.followsLive()};
+  return {refresh:()=>{if(dialog.open&&trackView)renderTrack();},updateIdentity:(identity,ready,state)=>profile.update(identity,ready,state),updateLive:(state,ready)=>{keyboard.updateLive(state,ready);hardware=state;hardwareReady=ready;if(dialog.open&&trackView)renderTrack();},wantsVisual:()=>dialog.open&&visual&&keyboard.followsLive()};
 }
