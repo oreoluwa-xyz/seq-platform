@@ -2,9 +2,9 @@
 
 **Firmware version and control changes**
 
-This guide describes the current development feature set, including firmware **2026.10.16.2** prepared for **v0.1.12**. It does not mean that preview has been released or installed on your keyboard. Check the firmware identity in the companion before using the new gestures.
+This guide covers the current keyboard controls: Space-based navigation and track length, whole-track mute, chord palettes, and the chord-aware accumulator. These are the controls on the updated keyboard.
 
-- Current development: **Space + F** toggles Follow. **Space + =** doubles with content; add either Shift for an empty extension.
+- **Space + F** toggles Follow. **Space + =** doubles with content; add either Shift for an empty extension.
 - **Ctrl + Space + knob** changes actual track length by one step; add Shift for 16. Shortening trims content beyond the new end.
 - **Shift + Space + F1–F12** toggles a whole track while preserving individual lane mutes on unmute.
 - **Ctrl + Space** and **Ctrl + Shift + Space** open Scale and Harmony on Space release if you did not turn the knob.
