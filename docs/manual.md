@@ -1,5 +1,15 @@
 **Sequencer Manual**
 
+**Firmware version and control changes**
+
+This guide covers the current keyboard controls: Space-based navigation and track length, whole-track mute, chord palettes, and the chord-aware accumulator. These are the controls on the updated keyboard.
+
+- **Space + F** toggles Follow. **Space + =** doubles with content; add either Shift for an empty extension.
+- **Ctrl + Space + knob** changes actual track length by one step; add Shift for 16. Shortening trims content beyond the new end.
+- **Shift + Space + F1–F12** toggles a whole track while preserving individual lane mutes on unmute.
+- **Ctrl + Space** and **Ctrl + Shift + Space** open Scale and Harmony on Space release if you did not turn the knob.
+- On the earlier **v0.1.11** firmware, **Space + =** is Follow; the new Space doubling, knob-length and whole-track mute gestures are unavailable. Its Tab-based duplication shortcuts remain the alternative. Updating this webpage does not update your firmware.
+
 ## Project capacity and save status
 
 Open **Capacity** beside the live status (in the desktop performance toolbar when compact). It shows whether the keyboard has unsaved changes or a confirmed on-board save, plus drum lanes, selected-track notes, shared chord recipes, CC automation, selected-lane step edits, and encoded storage sizes. Readings update about once a second and do not stop playback or save to flash. Disconnection hides old values; older firmware shows an update message.
@@ -12,7 +22,7 @@ Full-project restoration now clears the shared chord recipe pool as well as note
 
 **Momentary global loop:** hold **Enter** and turn the knob. Each detent changes the playback limit by one step, starting from the focused track's original length. For a 16-step track, turn left eleven detents for a 5-step loop across the project. Tracks already shorter than the limit retain their own length. Release Enter to restore every track's original length at the current transport position. The keyboard shows the step count with Enter orange; the live toolbar shows **Global loop · 5 steps**.
 
-This shortcut preserves all recorded notes, chord recipes, drum hits, lane rhythms and CC automation; it never trims or saves them, and it does not require a TEMP snapshot. It works with internal or external clock. Finish held edits and disarm recording first. Starting another action-key gesture, stopping transport, or exiting the sequencer ends the loop. **Ctrl + knob** retains tempo priority. **Enter + Esc**, **Space + Enter**, and Enter in the scale editor keep their existing actions. The loop limit can also be used during TEMP; releasing Enter leaves that snapshot intact.
+This shortcut preserves all recorded notes, chord recipes, drum hits, lane rhythms and CC automation; it never trims or saves them, and it does not require a TEMP snapshot. It works with internal or external clock. Finish held edits and disarm recording first. Starting another action-key gesture, stopping transport, or exiting the sequencer ends the loop. **Ctrl + knob** retains tempo priority unless Space is held for track length. **Enter + Esc**, **Space + Enter**, and Enter in the scale editor keep their existing actions. The loop limit can also be used during TEMP; releasing Enter leaves that snapshot intact.
 
 Hold **Enter** and tap **Esc** to capture a restore point for all tracks. Esc turns **purple** only after the complete snapshot fits. Release Enter, make your buildup changes, then tap **Esc** to restore the drop and leave TEMP. Playback stays on the current transport position; it does not restart. **Shift + Esc** queues restoration for the start of the next global 16-step bar. Esc blinks purple while queued. Press **Shift + Esc again** to cancel the queued restore and keep TEMP active (solid purple), extending the buildup. Press it again when ready to queue the next bar. Esc alone restores immediately, and Enter + Esc keeps the edits and cancels the queued restore. When stopped, Shift + Esc restores immediately; stopping playback with a restore queued also restores it.
 
@@ -55,7 +65,7 @@ This manual describes the current feature set for the seq_test sequencer keymap 
 7. Hold `Shift` while pressing `,` or `.` to retune the active drum lane (note 0-127).
 8. Hold a track key for about 220 ms, type digits `1`-`128` to set its bar count, then release.
 9. While holding a track key, tap `Backspace` to switch length entry to raw steps, then type digits.
-10. `Tab` + `=` doubles the length and copies content. Add both Shift keys for a blank extension.
+10. `Space` + `=` doubles the length and copies content. Add either Shift for a blank extension. The older `Tab` + `=` / both-Shifts shortcuts remain available.
 11. Hold `Del` and tap a track key to clear it.
 
 **Step Layouts**
@@ -81,7 +91,7 @@ This manual describes the current feature set for the seq_test sequencer keymap 
 5. Double-tap a filled drum step to open its editor. `I` `O` `P` select velocity, ratchet count, or spacing for the encoder.
 6. Delete a step by tapping it while its lane is selected.
 7. Clear the track’s selected lane by holding `Del` and tapping its track key. Hold both Shift keys as well to clear the whole drum track.
-8. `Tab` + `=` doubles the track’s exact step length, copying all its lanes, step modifiers, melodic events, and CC points into the new region. Add both Shift keys to leave the new region blank. An edit that exceeds event or modifier capacity is rejected.
+8. `Space` + `=` doubles the track’s exact step length, copying all its lanes, step modifiers, melodic events, and CC points into the new region. Add either Shift to leave the new region blank. An edit that exceeds event or modifier capacity is rejected.
 
 **Euclid Mode**
 1. Hold `Alt/Option` to peek at Euclid controls for the focused track. Double-tap to latch the session; tap once to exit.
@@ -114,16 +124,27 @@ Older projects retain their original shared-generator routing when loaded. Editi
 8. **Hold either Shift and tap PgDn once in CC mode to toggle Automation / Manual for the target track.** T remains an alternate shortcut. Automation is the default: while transport runs, changes record at the current step and saved movements play back. Manual sends your tweaks normally but pauses both recording and playback; existing CC points are kept. Repeat Shift + PgDn to resume from the next scheduled automation point. The choice remains when leaving CC mode and is included in project saves/backups. Other tracks are unaffected. Temporary gestures still revert as usual.
 9. With CC live-state firmware, latching CC mode opens a compact panel pinned to the bottom of the UI. It shows Automation or Manual status, the automation shortcut, the actual CC target track, each mapped key, CC number, MIDI channel (1–16), value, and held/selected controller. Hold a labelled key while turning the knob: ±3 per turn, or ±15 with Shift. Temporary gestures are marked. Minimize keeps a compact header; unlatching closes the panel. Values describe the keyboard’s outgoing CC state, not feedback from your DAW.
 
+**Track length with the knob**
+
+Hold **Ctrl + Space** and turn the knob: clockwise adds one step, counterclockwise removes one. Add **either Shift** for 16-step increments. This changes the current track’s actual loop length (1–2048 steps); it works with either internal or external clock. Expansion adds empty space. Shortening trims notes, drum hits/modifiers and CC automation beyond the new end; expanding again does not restore them. Finish held edits and disarm recording first.
+
+**Space + =** doubles the exact length and repeats existing content, including melodic events, drum lanes/modifiers and CC points. **Space + Shift + =** doubles with an empty extension. Capacity failures reject the entire duplication. Space + knob still controls swing, and Ctrl + knob without Space controls tempo. Tap Ctrl + Space or Ctrl + Shift + Space without turning the knob to open Scale or Harmony on Space release.
+
 **Navigation And Follow**
 1. Hold `Space` to access navigation controls.
 2. Tap digits to jump to bars (0 = 10). Rapid taps multiply. Hold `Shift` while tapping to double the target.
-3. While holding `Space`, press `=` to toggle follow mode. Follow keeps the view synced to the playhead.
-4. Bar LEDs show a binary readout of the viewed bar and playhead. The live UI mirrors the hardware’s viewed bar and labels the absolute steps (for example, bar 2 shows steps 17–32). If playback reaches a different bar while the view remains held, the UI shows the playing bar and the Space + = follow shortcut.
+3. While holding `Space`, press `F` to toggle follow mode. Follow keeps the view synced to the playhead.
+4. Bar LEDs show a binary readout of the viewed bar and playhead. The live UI mirrors the hardware’s viewed bar and labels the absolute steps (for example, bar 2 shows steps 17–32). If playback reaches a different bar while the view remains held, the UI shows the playing bar and the Space + F follow shortcut.
 
 **Mutes**
+
+Hold **Shift + Space** and tap **F1–F12 once** to mute/unmute that entire track, including every drum lane and any melodic layer. Either Shift works. This does not change the selected track or lane. Sounding notes and queued drum repeats stop immediately; unmuting rejoins playback on the next step with individual lane/layer mutes preserved. You can still edit individual lane mutes while the track is muted. The live track indicator shows it fully muted while the track mute is active.
+
+Track mutes are saved with the project, included in computer backups and restored by TEMP. Older projects load with track mutes off. Backups with an active track mute need firmware that supports this setting; older firmware rejects the new field. CC automation retains its existing behavior.
+
 1. While holding `Space`, double-tap a melodic track key to mute or unmute it.
 2. For drum tracks, hold `Space`, tap the drum track once, then tap a track key for the lane index you want to mute or unmute.
-3. While holding `Space`, tap `Backspace` to clear all mutes.
+3. While holding `Space`, tap `Backspace` to clear all track, melodic-layer and lane mutes.
 
 **Recording**
 1. Double-tap `PgDn` to arm or disarm note recording. In CC mode, **Shift + PgDn** toggles CC Automation / Manual instead, without changing note-record arming.
@@ -133,7 +154,7 @@ Older projects retain their original shared-generator routing when loaded. Editi
 
 **Transport And Tempo**
 1. `Home` toggles transport. When starting, it resets the playhead to the beginning and sends MIDI start. When stopping, it sends MIDI stop.
-2. Hold **Ctrl + turn the knob** for global tempo in every active sequencer mode, including Chord, Euclid, CC and step editing. Each detent changes 1 BPM; **Ctrl + Shift + knob** changes 5 BPM. The range is 10–400 BPM. This gesture takes priority over the mode’s knob parameter. Transfers block it; when following external MIDI clock, use the DAW tempo instead.
+2. Hold **Ctrl + turn the knob** for global tempo in every active sequencer mode, including Chord, Euclid, CC and step editing. Each detent changes 1 BPM; **Ctrl + Shift + knob** changes 5 BPM. The range is 10–400 BPM. With Space held it changes track length instead; otherwise it takes priority over the mode’s knob parameter. Transfers block it; when following external MIDI clock, use the DAW tempo instead.
 3. A plain knob turn still changes tempo in the ordinary drum/melody view when no other parameter or track is held. `BPM Up` / `BPM Down` also work if exposed by your keymap.
 
 **Defaults And Limits**
@@ -171,7 +192,7 @@ Older projects retain their original shared-generator routing when loaded. Editi
 
 **Saving and Computer Backup**
 
-`Space` + `Enter` saves the complete project on board. Stop and exit also save
+`Space` + `Enter` stops transport and saves the complete project on board. Stop and exit also save
 changes. The next startup loads a valid save. The 3 KiB on-board area accommodates
 smaller projects; actual size depends on events, lane lengths, and modifiers.
 It never truncates a project. If it does not fit, the previous save remains and
@@ -270,11 +291,11 @@ In **How this track plays**, choose **When notes play**, then **Which notes play
 
 Exporting a combination saves a version 2 composition; importing or reading it restores timing and notes together.
 
-For Euclidean chords, choose a bank slot and set the pulse count. Every pulse plays that selected chord with a one-step gate; its slot length still controls stamping, not the generated gate. On the keyboard, Alt/Option + number selects/auditions a bank slot and Alt/Option + step stamps it. Configure the composed chord rhythm in the UI, then install; Alt remains the bank controls.
+For Euclidean chords, use a melodic track’s **chord palette**: hold Alt/Option and tap C to toggle it, use 1–8 to pin a slot and 0 to resume cycling. Hold a slot and turn the knob to choose its chord quality. This is separate from recorded Chord mode. Hardware chord-bank modules are no longer supported; local bank drafts remain authoring sources for Harmony workshop.
 
 Follow recorded steps + Track notes plays the original sustained phrase. Euclid + Stored notes retains the note-span/palette behavior described above. Compositions preserve source notes; choose Follow recorded steps + Track notes to hear the recorded phrase with its full note lengths. The accumulator also works with recorded-step compositions and moves each onset group together.
 
-Live module readouts identify the rhythm and pitch source together. Step-note cards continue to show stored source notes; **Selected on keyboard** and **Sounding now** show the bank selection and sampled output. Updated firmware is required for compositions. The UI checks supported component versions and size limits before installation.
+Live module readouts identify the rhythm and pitch source together. Step-note cards continue to show stored source notes; **Selected on keyboard** and **Sounding now** show the selected notes and sampled output. Updated firmware is required for compositions. The UI checks supported component versions and size limits before installation.
 
 ### Help for this track
 
@@ -284,7 +305,7 @@ Press Cmd+/ (Ctrl+/ on Windows/Linux), then choose **This track**. **Local draft
 
 The hardware panel’s orbit follows the keyboard’s viewed 16-step bar, including eligible hits and the running playhead. Changing fills, rotation or steps on the keyboard updates this view. The orbit is a window into the track. Above it, live-rhythm firmware reports the full generator’s Steps, Fills, Rotation, Probability, Accent and enabled state. Pulses / view counts generated pulses in this bar; Eligible hits / view includes hits supplied by picked-note fallback. These counts precede probability and mutes. The editor orbit is explicitly labelled Draft and remains your unsent configuration.
 
-With live-rhythm firmware, outer labels and step cards show projected melodic pitches, including palette offsets, pinned notes and selected bank chords; +N indicates more notes. The projection is before probability, mutes and the accumulator, so it does not promise a note will sound. The center shows sampled sounding notes; short notes may fall between live samples. Older firmware shows stored notes instead. When capturing a palette while Euclid is latched, physically hold Alt/Option + Shift, tap the notes, then release Alt/Option to commit.
+With live-rhythm firmware, outer labels and step cards show projected melodic pitches, including palette offsets, pinned notes and chord-palette voicings; +N indicates more notes. The projection is before probability, mutes and the accumulator, so it does not promise a note will sound. The center shows sampled sounding notes; short notes may fall between live samples. Older firmware shows stored notes instead. When capturing a palette while Euclid is latched, physically hold Alt/Option + Shift, tap the notes, then release Alt/Option to commit.
 
 ### Watching palette capture
 
@@ -320,12 +341,12 @@ The live hardware row follows the keyboard: **Q Steps · W Fills · E Rotation �
 
 Click a live value, type a number, and press Enter or leave the field to apply it directly to the keyboard. Escape cancels typing. Rhythm Enabled/Disabled controls the generator; enabling from the UI preserves zero fills. Steps ranges from 1 to the track length, Fills from 0 to Steps, Rotation from 0 to Steps − 1, Probability from 0–100%, and Accent from 0–48 MIDI velocity points. Reducing Steps clamps Fills/ratchet threshold and wraps Rotation. Changing Steps or Fills returns a captured template to evenly spaced hits.
 
-Pulses / view and Eligible hits / view are calculated counts for the displayed bar, before probability and mutes. They update as the rhythm changes. Finish held-key gestures or recording before editing from the browser. If the track or value changes while you type, the keyboard rejects that stale edit. Changes stay live during playback and are saved with the project. These controls also edit a composed Euclidean rhythm with a chord bank; chord-bank hardware shortcuts remain dedicated to chords. Older firmware stays read-only and displays its older key mapping until flashed.
+Pulses / view and Eligible hits / view are calculated counts for the displayed bar, before probability and mutes. They update as the rhythm changes. Finish held-key gestures or recording before editing from the browser. If the track or value changes while you type, the keyboard rejects that stale edit. Changes stay live during playback and are saved with the project. Use chord palettes for generated harmony; hardware chord-bank installations are rejected. Older firmware stays read-only and displays its older key mapping until flashed.
 
 
 ### Global key, scale, and quantization
 
-While the sequencer is active, press **Ctrl + Space** to open Scale mode. Release any other held gestures first. Use the melodic note keys (Q, 2, W, 3, E, R, 5, T, 6, Y, 7, U) to choose C through B. Select **A Ionian, S Dorian, D Phrygian, F Lydian, G Mixolydian, H Aeolian, J Locrian, K Harmonic minor, L Harmonic major, ; Major pentatonic, ' Minor pentatonic**. The root lights orange, other scale tones green, and the selected mode violet. The virtual keyboard follows the same layout. When connected, Ctrl + Space also opens a live scale picker modal in the UI. It follows pending keyboard choices and closes after Enter applies or Esc cancels. Hide dismisses only the window. **Enter applies; Esc cancels; 0 toggles global scale on/off.** Picking a root or mode enables the pending scale. Playback continues with committed settings until Enter. The UI shows the pending scale and its notes live. Harmonic scales contain seven notes; pentatonic scales contain five. All eleven scales are also available in the per-track Local scale menu.
+While the sequencer is active, tap **Ctrl + Space** to open Scale mode on Space release. Turning the knob while held edits track length instead and suppresses the editor. Release any other held gestures first. Use the melodic note keys (Q, 2, W, 3, E, R, 5, T, 6, Y, 7, U) to choose C through B. Select **A Ionian, S Dorian, D Phrygian, F Lydian, G Mixolydian, H Aeolian, J Locrian, K Harmonic minor, L Harmonic major, ; Major pentatonic, ' Minor pentatonic**. The root lights orange, other scale tones green, and the selected mode violet. The virtual keyboard follows the same layout. When connected, Ctrl + Space also opens a live scale picker modal in the UI. It follows pending keyboard choices and closes after Enter applies or Esc cancels. Hide dismisses only the window. **Enter applies; Esc cancels; 0 toggles global scale on/off.** Picking a root or mode enables the pending scale. Playback continues with committed settings until Enter. The UI shows the pending scale and its notes live. Harmonic scales contain seven notes; pentatonic scales contain five. All eleven scales are also available in the per-track Local scale menu.
 
 Open **Scale** in the hardware panel to choose root and mode visually, audition the pending scale using the browser sound, then Apply global. The header’s Sound mute applies to auditions. Global scale starts off, preserving older projects. Per-track choices are **Follow global**, **Local key / scale**, or **Unconstrained**, with nearest, downward or upward snapping. Nearest ties snap down; at MIDI boundaries the nearest in-range scale tone is used. Apply track commits those settings.
 
@@ -334,7 +355,7 @@ Quantization runs after melodic pitch generation and the accumulator, without re
 
 ### Create a complementary chord track
 
-Open **Harmony workshop** with **Ctrl + Shift + Space**, or its button in the hardware live view. The keyboard shortcut requires the latest firmware and a connected UI; it opens the workshop without stopping playback. Finish held-note/recording gestures first. Ctrl + Space still opens global scale editing. For melody capture, select a melodic hardware track and choose **A captured melody**. This requires harmony-capture firmware. Click **Capture melody** to freeze the complete loop; capture stops transport. The source uses the highest projected voice at each step, including Euclid timing, recorded overrides, palette choices and scale quantization. Probability, mutes and accumulator movement are excluded, matching the projected live-note view.
+Open **Harmony workshop** by tapping **Ctrl + Shift + Space** (release Space without turning the knob), or its button in the hardware live view. The keyboard shortcut requires the latest firmware and a connected UI; it opens the workshop without stopping playback. Finish held-note/recording gestures first. Ctrl + Space still opens global scale editing. For melody capture, select a melodic hardware track and choose **A captured melody**. This requires harmony-capture firmware. Click **Capture melody** to freeze the complete loop; capture stops transport. The source uses the highest projected voice at each step, including Euclid timing, recorded overrides, palette choices and scale quantization. Probability, mutes and accumulator movement are excluded, matching the projected live-note view.
 
 Choose **Scale chords** to build three-note chords by alternating scale degrees, or **Closest bank chord** to use a chosen track's local chord-bank draft. The bank provider preserves its pitch classes, using octave placement and inversions. Both prefer a chord containing the melody anchor, then smooth movement from the previous chord. When no exact match exists, the preview says “nearest match.” Pentatonic harmony uses alternating degrees of the five-note scale; it is not restricted to conventional major/minor triads.
 
@@ -361,7 +382,7 @@ In the normal drum or melodic step view, hold a populated step for a quarter-sec
 - **Melody:** release the note keys first, hold a recorded step and turn the knob to lengthen or shorten its selected note by one step per turn. While keeping the step held, tap **I Length · O Pitch · P Velocity** to choose what the knob edits. You can tap the parameter immediately, without waiting for the hold timeout. Every new hold starts on Length. Pitch editing follows the track's active global/local scale; Scale Off uses semitones. The physical and virtual keyboards highlight the selected note.
 - A quick tap on an existing step still toggles/removes it, now on release. Holding without turning leaves its notes intact. Parameter keys can change the melodic hold edit; release the step before using other controls. Esc cancels the hold gesture without removing the step. Changes already made with the knob remain.
 
-These shortcuts apply in the normal step view; leave latched Euclid, CC, scale or Chord Bank controls first. Recording and held-note chord placement keep their existing gestures. On a sustained melodic event, changing its pitch edits that whole event, including its other steps. A polyphonic step currently edits one selected voice; it does not transpose the entire chord. Hold editing of generated-only melodic pulses is not yet supported: place a recorded note override first.
+These shortcuts apply in the normal step view; leave latched Euclid, CC or scale controls first. Recording and held-note chord placement keep their existing gestures. On a sustained melodic event, changing its pitch edits that whole event, including its other steps. A polyphonic step currently edits one selected voice; it does not transpose the entire chord. Hold editing of generated-only melodic pulses is not yet supported: place a recorded note override first.
 
 The full drum editor still uses I Velocity, O Ratchets and P Spacing. The full melodic editor uses I Length, O Pitch and P Velocity; its existing chromatic pitch editing remains available. Save on board to retain edits.
 
@@ -398,7 +419,7 @@ Chord mode uses recorded timing. Each chord ends at the next onset or the loop b
 
 There are **64 chord recipes shared across all tracks** and the existing **128 recorded note events per track**. Triads use three events; sevenths, sixths and add-nine chords use four; ninths use five. Failed edits retain the previous chord. On-board saving and computer project backups preserve recipes and notes, subject to the existing on-board storage limit. Older firmware does not support this recipe extension.
 
-This first slice edits chords authored in Chord mode. Existing melody, Chord Bank and Harmony workshop notes keep playing, but are not automatically grouped; an overlapping placement reports that recorded notes occupy the region. Individual-note edits, clears, trims or copies outside Chord mode can detach the affected recipes; their remaining notes stay ordinary melodic events. Workshop read/edit/write is described below. Custom/bank recipe import is available in the workshop below. Spread remains planned. Euclidean chord palettes are available in Melody mode, as described below. Live recording continues to create ordinary melodic events; step placement is the way to author grouped chords in this slice.
+This first slice edits chords authored in Chord mode. Existing melody, migrated bank notes and Harmony workshop notes keep playing, but are not automatically grouped; an overlapping placement reports that recorded notes occupy the region. Individual-note edits, clears, trims or copies outside Chord mode can detach the affected recipes; their remaining notes stay ordinary melodic events. Workshop read/edit/write is described below. Custom/bank recipe import is available in the workshop below. Spread remains planned. Euclidean chord palettes are available in Melody mode, as described below. Live recording continues to create ordinary melodic events; step placement is the way to author grouped chords in this slice.
 
 ## Editing chord tracks in the Harmony workshop
 
@@ -493,7 +514,7 @@ The destination always has the **current track length**. If the melodic Euclid c
 
 On **drums**, Ctrl + Euclid prints generated hits into the **selected lane**, including existing manual hits. The lane's generator is disabled and the edit session exits; sibling lanes retain their patterns and generators. Existing per-step velocity and repeat edits are retained on printed hits. This prints hit positions, not Euclid's live probability, accent or auto-ratchet effects. Short rhythms repeat to the track length; longer rhythms are clipped. If no storage lane is available, the operation leaves the pattern unchanged and flashes Esc magenta.
 
-Printing captures the underlying pattern before probability skips, mutes and evolving accumulator movement; it does not record one randomized performance. Up to 128 note events fit, counting each chord voice. If the print would exceed that limit, Esc flashes magenta and the original notes and Euclid mode remain unchanged. Finish recording, step editing, chord/palette capture and project transfers first. This shortcut supports melodic Euclid tracks and the selected drum lane, but not Chord Bank tracks.
+Printing captures the underlying pattern before probability skips, mutes and evolving accumulator movement; it does not record one randomized performance. Up to 128 note events fit, counting each chord voice. If the print would exceed that limit, Esc flashes magenta and the original notes and Euclid mode remain unchanged. Finish recording, step editing, chord/palette capture and project transfers first. This shortcut supports melodic Euclid tracks and the selected drum lane, hardware chord-bank tracks are no longer supported.
 
 You can now add notes between the printed hits, remove notes, or edit their pitches, velocities and lengths. **Space + Enter** saves the result. Plain Euclid tap still only exits the controls; **Ctrl + Shift + Euclid + note keys** still replaces the palette.
 

@@ -4,7 +4,8 @@ import {manualSections, renderSection} from '../ui/manual.mjs';
 const root = document.querySelector('#keyboard-guide');
 root.querySelector('#keyboard-live').checked = false;
 root.querySelector('.keyboard-caption').textContent = 'Select a key to explore its gesture. Use arrow keys to move around the map. F1–F12 identify physical positions, including the Mac media row.';
-setupKeyboard();
+const paletteReference = document.querySelector('#reference-palette');
+const keyboard = setupKeyboard({getReferencePalette:()=>({chordSupported:true,mode:paletteReference.value==='notes'?'palette':'chords',editDigit:paletteReference.value==='quality'?1:null})});
 const search = document.querySelector('#guide-search');
 const nav = document.querySelector('#guide-sections');
 const content = document.querySelector('#guide-content');
@@ -40,6 +41,7 @@ function applyRoute() {
   document.querySelector('#map-tab').setAttribute('aria-current', view === 'keyboard' ? 'page' : 'false');
   document.querySelector('#guide-tab').setAttribute('aria-current', view === 'guide' ? 'page' : 'false');
   if (view === 'keyboard') {
+    paletteReference.value = ['notes','chords','quality'].includes(params.get('palette')) ? params.get('palette') : 'notes';
     const os = root.querySelector('#keyboard-os');
     os.value = params.get('os') === 'win' ? 'win' : 'mac';
     root.querySelector('#keyboard-grid').checked = params.get('grid') === '4';
@@ -58,8 +60,10 @@ function saveKeyboard() {
   if (applying) return;
   const params = new URLSearchParams({mode: root.querySelector('[data-mode][aria-pressed="true"]').dataset.mode, key: root.querySelector('[data-key][aria-pressed="true"]').dataset.key, os: root.querySelector('#keyboard-os').value});
   if (root.querySelector('#keyboard-grid').checked) params.set('grid', '4');
+  params.set('palette', paletteReference.value);
   history.replaceState(null, '', `#keyboard?${params}`);
 }
+paletteReference.addEventListener('change', () => {root.querySelector('[data-mode="euclid"]').click();keyboard.refreshReference();saveKeyboard();});
 root.addEventListener('click', saveKeyboard);
 root.addEventListener('change', saveKeyboard);
 root.addEventListener('keydown', event => {if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)) saveKeyboard();});

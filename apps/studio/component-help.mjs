@@ -4,15 +4,15 @@ export const componentHelp = {
     title:'Follow recorded steps',purpose:'Use the timing already recorded on this track.',
     parameters:['There are no additional rhythm parameters. Edit the recorded steps on the keyboard.'],
     gestures:['Add or edit steps using the track’s drum or melodic controls.'],
-    example:'Record an uneven phrase, then pair its timing with a chord bank to hear a chord at each recorded melodic note start.',
-    compatibility:'With track notes, recorded note lengths are preserved. With a chord bank, melodic note starts trigger one-step chords.'
+    example:'Record an uneven phrase and use its recorded timing to preserve the original note onsets.',
+    compatibility:'With track notes, recorded note lengths are preserved. Hardware chord-bank modules are no longer supported.'
   },
   'rhythm.euclid@1': {
     title:'Euclidean pulses',purpose:'Space a chosen number of hits around a repeating loop.',
-    parameters:['Steps: length of the rhythm. Hits: how many pulses it contains. Rotation: move the pulses around the loop.','Probability: the chance a hit plays. Accent: additional emphasis during playback.','Generate Euclidean hits: turn off to follow recorded timing. Ratchet threshold applies to drums and is unavailable with a chord bank.'],
-    gestures:['Edit the hardware rhythm values directly in the live view. In Euclid controls, select Q Steps, W Fills, E Rotation, R Probability or T Accent, then turn the knob; brackets nudge rotation. With a chord bank, Alt/Option remains dedicated to chord controls. Save the project to keep live changes.'],
-    example:'Try 5 hits in 16 steps with a rotation of 1. Pair it with a chord bank for repeating harmony, or track notes for a rhythmic variation of a phrase.',
-    compatibility:'The pitch source determines which notes each pulse plays: palette notes with recorded overrides, transposed track notes, or a selected bank chord.'
+    parameters:['Steps: length of the rhythm. Hits: how many pulses it contains. Rotation: move the pulses around the loop.','Probability: the chance a hit plays. Accent: additional emphasis during playback.','Generate Euclidean hits: turn off to follow recorded timing. Ratchet threshold applies to drums.'],
+    gestures:['Edit the hardware rhythm values directly in the live view. In Euclid controls, select Q Steps, W Fills, E Rotation, R Probability or T Accent, then turn the knob; brackets nudge rotation. Save the project to keep live changes.'],
+    example:'Try 5 hits in 16 steps with a rotation of 1. Use a chord palette for repeating harmony, or track notes for a rhythmic variation of a phrase.',
+    compatibility:'The pitch source determines which notes each pulse plays: palette notes with recorded overrides, transposed track notes, or a chord-palette voicing.'
   },
   'pitch.track@1': {
     title:'Track notes + palette',purpose:'Use recorded pitches where present and your picked notes for empty Euclidean steps.',
@@ -36,11 +36,11 @@ export const componentHelp = {
     compatibility:'Requires chord-palette firmware. Existing Auto entries play only their root with scale off. New captures start Major. Qualities survive saves, backups and TEMP.'
   },
   'pitch.chord-bank@1': {
-    title:'Chord bank',purpose:'Choose one of twelve chords to supply the notes for generated hits.',
-    parameters:['Each slot holds up to eight notes and a velocity. Transpose shifts the chord; inversion changes its voicing.','Slot length sets the duration of stamped or recorded chords. Generated chords use a one-step gate.'],
-    gestures:['Alt/Option + 1…0, −, =: select and audition a slot. Release to end audition.','Alt/Option + step: stamp the chord. Alt/Option + encoder: transpose. Add Shift for inversion.'],
-    example:'Set a 4-in-16 Euclidean rhythm, then select different bank slots to change the harmony while keeping the pulse.',
-    compatibility:'Generated chords use the melodic layer. Drum ratchets cannot be combined with this component. Stamping writes notes; installing a composition preserves existing notes.'
+    title:'Chord bank (local authoring / legacy)',purpose:'Use a local bank draft as a Harmony workshop source. Current firmware rejects hardware bank installations.',
+    parameters:['Edit notes, declared roots and chord names in the local bank draft.'],
+    gestures:['Use Harmony workshop to turn local bank voicings into recorded chords. Hardware Alt/Option bank selection and stamping are legacy controls, not current firmware features.'],
+    example:'Choose Closest bank chord in Harmony workshop and preview the progression before writing recorded notes.',
+    compatibility:'Local authoring only. Legacy saved bank tracks migrate to recorded-note playback; unprinted bank slots and bank-generated playback are removed.'
   }
 };
 export function helpFor(component){
