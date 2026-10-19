@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 import shutil
 
-MANAGED = ('ui', 'modules', 'MANUAL.md', 'LICENSE', 'index.html', '.nojekyll')
+MANAGED = ('assets', 'ui', 'modules', 'MANUAL.md', 'LICENSE', 'index.html', '.nojekyll')
 
 
 def sync(source, destination):
