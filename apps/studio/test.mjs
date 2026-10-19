@@ -834,3 +834,14 @@ console.log('Palette source-slot mapping and automatic editor navigation passed.
   assert.match(nav.Knob.detail,/Ctrl \+ Space.*one step.*Shift.*16 steps/);
 }
 console.log('Space navigation, length and doubling help passed.');
+
+{
+  const {controlsFor}=await import('./keyboard.mjs');
+  const {helpFor}=await import('./component-help.mjs');
+  const nav=controlsFor('navigation');
+  assert.match(nav.Enter.detail,/stops transport/);
+  assert.match(nav.Home.detail,/stops transport/);
+  assert.equal(controlsFor('euclid','mac',false,true,false,{chordSupported:true,mode:'palette'}).C.label,'Chord palette');
+  assert.equal(controlsFor('euclid','mac',false,true,false,{chordSupported:true,mode:'chords'})['1'].label,'Chord 1');
+  assert.match(helpFor({id:'pitch.chord-bank',version:1}).compatibility,/Local authoring only/);
+}

@@ -24,7 +24,7 @@ const pitches=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 const slots='1 2 3 4 5 6 7 8 9 0 - ='.split(' ');
 export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit=false,palette=null){
   const map={};const put=(key,label,group,detail)=>map[key]={label,group,detail};
-  if(mode!=='off')for(const key of ['LCtrl','RCtrl'])put(key,'Tempo','modifier','Hold Ctrl and turn the knob for global tempo; add Shift for 5 BPM. External MIDI clock keeps tempo in the DAW.');
+  if(mode!=='off')for(const key of ['LCtrl','RCtrl'])put(key,'Tempo','modifier','Hold Ctrl and turn the knob for global tempo; add Shift for 5 BPM. With Space held, these edit track length by 1 or 16 steps instead. External MIDI clock keeps tempo in the DAW.');
   if(mode==='off'){put('PgUp','Enter seq','transport','Double-tap PgUp to enter the sequencer.');return map;}
   if(mode==='confirmation'){put('Y','Confirm','transport','Confirm the pending track type change.');put('N','Cancel','transport','Cancel the pending track type change.');return map;}
   if(mode==='scale'){rootKeys.forEach((key,i)=>put(key,rootNames[i],'note',`Choose ${rootNames[i]} as the global root.`));modeKeys.forEach((key,i)=>put(key,scaleNames[i],'parameter',`Choose ${scaleNames[i]}.`));put('Enter','Apply','transport','Apply the pending global key and scale.');put('Esc','Cancel','transport','Discard pending changes.');put('0','Scale on/off','modifier','Toggle global scale constraint.');return map;}
@@ -36,7 +36,7 @@ export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit
   put('PgDn','Arm record','transport','Double-tap to arm or disarm recording. Armed notes are captured while transport runs.');
   put('Home','Start / stop','transport','Toggle transport from the start in master mode. Use DAW transport when following external clock.');
   for(let n=1;n<=12;n++)put(`F${n}`,`Track ${String(n).padStart(2,'0')}`,'track',`Select track ${n}. Hold a drum track and tap another track key to select its lane. Hold Tab + track for melodic, Caps + track for drum; confirm an active-track conversion with Y or cancel with N.`);
-  modifier(alt,'Euclid / bank','Hold for the installed module: Euclid controls or Chord Bank. Double-tap to latch Euclid; tap once to exit. Ctrl + tap while latched prints the melodic loop or selected drum lane to the track length and exits, disabling generation.');
+  modifier(alt,'Euclid','Hold for Euclid controls. Hardware chord-bank modules are no longer supported. Double-tap to latch Euclid; tap once to exit. Ctrl + tap while latched prints the melodic loop or selected drum lane to the track length and exits, disabling generation.');
   modifier(gui,'CC mode','Hold for CC mode; double-tap to latch. Hold Shift on entry for temporary changes that revert on exit.');
   put('Space','Navigation','modifier','Hold Space for navigation, mute, layout, saving and sync controls. Tap Ctrl + Space for global scale or Ctrl + Shift + Space for the UI harmony workshop; these open on Space release without a knob turn. Hold Ctrl + Space and turn the knob for track length; Shift changes 16 steps at a time.');
   if(['drum','melodic','chord','drum-edit','melodic-edit','chord-step'].includes(mode)){
@@ -85,8 +85,8 @@ export function controlsFor(mode,os='mac',fourByFour=false,ordered=true,holdEdit
     '1 2 3 4 5 6 7 8 9 0'.split(' ').forEach((key,i)=>put(key,`Bar ${i+1}`,'parameter','Space + digit jumps to this bar. Rapid taps multiply; Shift doubles the target.'));
     put('F','Follow','parameter','Space + F toggles following the playhead.');put('=','Double length','parameter','Space + = doubles track length and repeats its content. Add either Shift for an empty extension.');put('Backspace','Unmute all','parameter','Space + Backspace clears all track and lane mutes.');
     put('S','Step layout','parameter','Hold Space, tap S, then 1 for the drum 4×4 grid or ` for the default two-row grid. Melody always uses two rows.');
-    put('Enter','Save','transport','Space + Enter saves the project on board if it fits. Esc red/amber warns of a failed save; keep a computer backup for large projects.');
-    put('Home','Clock source','transport','Space + Home toggles internal MIDI master / DAW follower.');put('Knob','Swing / length','parameter','Space + knob adjusts swing. Ctrl + Space + knob changes the current track length by one step; add Shift for 16 steps. Expansion adds empty space; shortening trims notes and automation beyond the new end.');
+    put('Enter','Save','transport','Space + Enter stops transport and saves the project on board if it fits. Esc red/amber warns of a failed save; keep a computer backup for large projects.');
+    put('Home','Clock source','transport','Space + Home stops transport and toggles internal MIDI master / DAW follower.');put('Knob','Swing / length','parameter','Space + knob adjusts swing. Ctrl + Space + knob changes the current track length by one step; add Shift for 16 steps. Expansion adds empty space; shortening trims notes and automation beyond the new end.');
     for(let n=1;n<=12;n++)put(`F${n}`,`Mute ${n}`,'track','Shift + Space + this F-key toggles the entire track, including all drum lanes and its melodic layer. Unmuting preserves individual lane/layer mutes. Without Shift, double-tap a melodic track to mute/unmute its melody; for drums, tap the track then the lane’s F-key.');
   }
   if(mode.endsWith('-edit')){
@@ -148,7 +148,7 @@ export function keyboardMarks(state,mode,gridEnabled=false){
   if(state.visual?.leds)for(const key of keyboardLayout){const [row,col]=key.matrix;const offset=(row*16+col)*3;marks[key.id].rgb=Array.from(state.visual.leds.slice(offset,offset+3));}
   return marks;
 }
-export function setupKeyboard(){
+export function setupKeyboard({getReferencePalette=()=>null}={}){
   const root=document.getElementById('keyboard-guide');
   let mode='drum',selected='F1',hardware=null,ready=false;
   const held=()=>!!(root.querySelector('#keyboard-live').checked&&ready&&hardware?.visual?.holdEdit);
@@ -157,7 +157,7 @@ export function setupKeyboard(){
   const buttons=new Map();
   const labelFor=id=>({LShift:'Shift',RShift:'Shift',RCtrl:'Ctrl',Mod1:root.querySelector('#keyboard-os').value==='mac'?'Option':'Win',Mod2:root.querySelector('#keyboard-os').value==='mac'?'Cmd':'Alt',Mod3:root.querySelector('#keyboard-os').value==='mac'?'Cmd':'Alt'})[id]||id;
   function inspect(id){
-    selected=id;const control=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:null)[id];
+    selected=id;const control=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette())[id];
     for(const [key,button] of buttons){button.setAttribute('aria-pressed',String(key===id));button.tabIndex=key===id?0:-1;}
     detail.replaceChildren();const cap=document.createElement('span');cap.className='detail-key';cap.textContent=labelFor(id);const text=document.createElement('div'),title=document.createElement('strong'),description=document.createElement('p');
     title.textContent=control?.label||'No mode-specific control';description.textContent=control?.detail||'This key has no dedicated control in this view. Other held-key combinations may still apply.';
@@ -176,7 +176,7 @@ export function setupKeyboard(){
     };buttons.set(key.id,button);board.append(button);
   }
   function render(){
-    const config=modes.find(m=>m[0]===mode),map=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:null);
+    const config=modes.find(m=>m[0]===mode),map=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette());
     root.querySelector('.keyboard-mode-title').textContent=config[2];root.querySelector('.keyboard-mode-help').textContent=held()?(mode==='drum-edit'?'Hold the step and turn the knob for Velocity. Release to finish.':'Hold the step and turn the knob for Length. Tap I Length, O Pitch or P Velocity while held. Release to finish.'):config[3];
     root.querySelector('.keyboard-grid-option').hidden=mode!=='drum';
     root.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));
@@ -189,7 +189,7 @@ export function setupKeyboard(){
     const following=follow.checked&&!!hardware,live=following&&ready;
     root.classList.toggle('keyboard-following',live);root.classList.toggle('keyboard-stale',following&&!ready);
     const marks=keyboardMarks(live?hardware:null,mode,root.querySelector('#keyboard-grid').checked);
-    const currentControls=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:null);
+    const currentControls=controlsFor(mode,root.querySelector('#keyboard-os').value,root.querySelector('#keyboard-grid').checked,ordered(),held(),root.querySelector('#keyboard-live').checked?hardware?.palette:getReferencePalette());
     for(const [id,button] of buttons){
       const mark=marks[id];
       for(const state of ['current','hit','playhead','selected','sounding','running','armed'])button.classList.toggle(`key-${state}`,!!mark[state]);
@@ -226,5 +226,5 @@ export function setupKeyboard(){
   }
   follow.onchange=()=>updateLive(hardware,ready);
   root.querySelector('#keyboard-os').onchange=render;root.querySelector('#keyboard-grid').onchange=render;render();
-  return {updateLive,followsLive:()=>follow.checked};
+  return {updateLive,followsLive:()=>follow.checked,refreshReference:render};
 }
