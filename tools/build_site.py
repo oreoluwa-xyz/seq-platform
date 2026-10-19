@@ -32,7 +32,14 @@ def build(destination):
             shutil.copy2(source, target)
     shutil.copy2(ROOT / 'LICENSE', destination / 'LICENSE')
     (destination / '.nojekyll').touch()
-    (destination / 'index.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>SEQ Studio</title><meta http-equiv="refresh" content="0;url=ui/"><a href="ui/">Open SEQ Studio</a></html>\n')
+    site = ROOT / 'apps/site'
+    assets = destination / 'assets'
+    assets.mkdir()
+    for name in ('index.html', 'site.css', 'site.mjs'):
+        source = site / name
+        if source.is_symlink():
+            raise ValueError(f'Symlink cannot be published: {name}')
+        shutil.copy2(source, destination / name if name == 'index.html' else assets / name)
     print(destination)
 
 

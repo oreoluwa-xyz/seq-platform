@@ -11,9 +11,14 @@ class SiteTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / 'source'
             (root / 'apps/studio').mkdir(parents=True)
+            (root / 'apps/site').mkdir(parents=True)
             (root / 'docs').mkdir()
             (root / 'modules/examples').mkdir(parents=True)
             for name, content in {
+                'apps/site/index.html': '<title>SEQ</title><a href="ui/">Studio</a>',
+                'apps/site/site.css': 'body {}',
+                'apps/site/site.mjs': 'export {};',
+                'apps/site/private.txt': 'private',
                 'apps/studio/index.html': '<head></head>',
                 'apps/studio/app.mjs': 'export {};',
                 'apps/studio/fixture.html': 'private fixture',
@@ -30,6 +35,9 @@ class SiteTests(unittest.TestCase):
             with patch.object(build_site, 'ROOT', root):
                 build_site.build(output)
             self.assertEqual(set(p.name for p in (output / 'ui').iterdir()), {'index.html', 'app.mjs'})
+            self.assertEqual((output / 'index.html').read_text(), (root / 'apps/site/index.html').read_text())
+            self.assertEqual({p.name for p in (output / 'assets').iterdir()}, {'site.css', 'site.mjs'})
+            self.assertFalse((output / 'private.txt').exists())
             self.assertIn('seq-hosting', (output / 'ui/index.html').read_text())
             self.assertFalse((output / 'modules/private.bin').exists())
             checkout.mkdir()
