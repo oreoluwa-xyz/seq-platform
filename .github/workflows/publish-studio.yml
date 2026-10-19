@@ -46,7 +46,7 @@ jobs:
           python3 platform/tools/sync_site.py "$RUNNER_TEMP/studio-site" studio
           source_sha=$(git -C platform rev-parse HEAD)
           cd studio
-          git add -- assets ui modules MANUAL.md LICENSE index.html .nojekyll
+          git add -- manual assets ui modules MANUAL.md LICENSE index.html .nojekyll
           if git diff --cached --quiet; then
             echo "Studio is already up to date." >> "$GITHUB_STEP_SUMMARY"
             exit 0

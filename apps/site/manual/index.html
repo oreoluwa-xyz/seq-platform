@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Explore SEQ’s interactive keyboard map and searchable field guide. Learn controls without connecting hardware.">
+<title>The manual — SEQ</title>
+<link rel="stylesheet" href="../ui/style.css">
+<link rel="stylesheet" href="manual.css">
+<script type="module" src="manual.mjs"></script>
+</head>
+<body>
+<header class="guide-header"><a class="guide-brand" href="../">SEQ <span>/ FIELD GUIDE</span></a><a href="../ui/">Open Studio</a></header>
+<main class="guide-page">
+<div class="guide-intro"><div class="eyebrow">LEARN THE INSTRUMENT</div><h1>The manual.</h1><p>Explore the keys. Find a gesture. Keep your idea moving.</p></div>
+<nav class="guide-tabs" aria-label="Manual views"><a href="#keyboard" id="map-tab">Keyboard map</a><a href="#guide" id="guide-tab">Written guide</a><button id="copy-link" type="button">Copy link</button><span id="copy-status" role="status"></span></nav>
+<section id="map-view" aria-labelledby="map-tab"><p class="reference-note"><strong>Explore controls.</strong> Choose a mode, then select a key for its gestures. No keyboard connection needed.</p>
+<!-- SHARED_KEYBOARD -->
+<p class="studio-note">For help that follows your connected keyboard or selected draft, <a href="../ui/">open the manual in Studio</a>. This reference page does not send MIDI or change your instrument.</p>
+</section>
+<section id="written-view" aria-labelledby="guide-tab" hidden>
+<div class="guide-search"><label for="guide-search">Find a control or workflow</label><input id="guide-search" type="search" placeholder="Try recording, chord, or Space…" autocomplete="off"><span id="guide-count" role="status"></span></div>
+<div class="reading-layout"><nav id="guide-sections" aria-label="Written guide sections"></nav><article id="guide-content" tabindex="-1"><p>Loading the written guide…</p></article></div>
+</section>
+<noscript><p>The interactive keyboard and search need JavaScript. <a href="../MANUAL.md">Read the source manual</a>.</p></noscript>
+</main>
+<footer class="guide-footer"><span>One instrument. One field guide.</span><a href="../MANUAL.md">Markdown source</a><a href="../">Back to SEQ</a></footer>
+</body>
+</html>

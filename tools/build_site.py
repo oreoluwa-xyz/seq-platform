@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build a public static Studio artifact without firmware, server code, or device data."""
 import argparse
+import re
 from pathlib import Path
 import shutil
 
@@ -40,6 +41,20 @@ def build(destination):
         if source.is_symlink():
             raise ValueError(f'Symlink cannot be published: {name}')
         shutil.copy2(source, destination / name if name == 'index.html' else assets / name)
+    manual = destination / 'manual'
+    manual.mkdir()
+    for name in ('index.html', 'manual.css', 'manual.mjs'):
+        source = site / 'manual' / name
+        if source.is_symlink():
+            raise ValueError(f'Symlink cannot be published: manual/{name}')
+        shutil.copy2(source, manual / name)
+    # Share the exact keyboard markup with the connected Studio manual.
+    studio_html = (ROOT / 'apps/studio/index.html').read_text()
+    keyboard = re.search(r'<section id="keyboard-guide".*?</section>', studio_html, re.S)
+    if keyboard is None:
+        raise ValueError('Studio keyboard guide markup is missing')
+    page = manual / 'index.html'
+    page.write_text(page.read_text().replace('<!-- SHARED_KEYBOARD -->', keyboard.group()))
     print(destination)
 
 

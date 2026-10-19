@@ -167,6 +167,7 @@ export function setupKeyboard(){
   }
   for(const key of keyboardLayout){
     const button=document.createElement('button');button.className='keyboard-key'+(key.id==='Knob'?' keyboard-knob':'');button.style.cssText=`left:${key.x/16.25*100}%;top:${key.y/6.5*100}%;width:${(key.w-.09)/16.25*100}%;height:${.88/6.5*100}%`;
+    button.dataset.key=key.id;
     button.onclick=()=>inspect(key.id);
     button.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;event.preventDefault();let next;
       if(event.key==='Home'||event.key==='End')next=keyboardLayout[event.key==='Home'?0:keyboardLayout.length-1];
