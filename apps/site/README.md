@@ -1,6 +1,10 @@
 # SEQ landing page
 
-The public site root introduces SEQ; the existing Studio remains at `ui/`.
+The public site root introduces SEQ with a keyboard illustration, feature overview,
+playable rhythm sketch, setup paths, open-source links, and an expandable FAQ.
+The existing Studio remains at `ui/` and the interactive manual at `manual/`.
+Product claims should stay aligned with the manual and supported firmware target.
+The keyboard drawing is illustrative, not a product photograph.
 The rhythm sketch is a standalone browser illustration, not the firmware engine.
 Audio starts only on Play and stops when the page becomes hidden.
 
