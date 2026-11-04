@@ -15,7 +15,7 @@ const root = app.isPackaged ? path.join(process.resourcesPath, 'site') : path.re
 const smoke = process.argv.includes('--smoke-test');
 app.setName('SEQ');
 if (smoke) app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'seq-desktop-smoke-')));
-let window, service, state, statePath, quitting = false, saveTimer, menu;
+let window, service, state, statePath, quitting = false, saveTimer, menu, restoringBounds = false;
 let shortcutAvailable = false;
 const publicState = () => ({pinned: state.pinned, compact: state.compact, shortcutAvailable});
 function toggleVisibility() {
@@ -25,7 +25,7 @@ function toggleVisibility() {
 }
 function save() {
     clearTimeout(saveTimer);
-    if (window && !window.isDestroyed() && !window.isMaximized() && !window.isFullScreen()) state[state.compact ? 'performance' : 'workshop'] = window.getBounds();
+    if (!restoringBounds && window && !window.isDestroyed() && !window.isMinimized() && !window.isMaximized() && !window.isFullScreen()) state[state.compact ? 'performance' : 'workshop'] = window.getBounds();
     try { fs.writeFileSync(`${statePath}.tmp`, JSON.stringify(state)); fs.renameSync(`${statePath}.tmp`, statePath); }
     catch (error) { console.error('Could not save window placement:', error.message); }
 }
@@ -43,10 +43,11 @@ function setPinned(value) {
 function setCompact(value) {
     if (state.compact !== value) {
         save(); state.compact = value;
-        if (window.isMaximized()) window.unmaximize();
-        const area = screen.getDisplayMatching(window.getBounds()).workArea;
-        window.setMinimumSize(Math.min(value ? 520 : 840, area.width), Math.min(value ? 250 : 400, area.height));
-        window.setBounds(fitBounds(state[value ? 'performance' : 'workshop'], screen.getAllDisplays(), value));
+        restoringBounds = true;
+        try {
+            if (window.isMaximized()) window.unmaximize();
+            applyBounds(fitBounds(state[value ? 'performance' : 'workshop'], screen.getAllDisplays(), value));
+        } finally { restoringBounds = false; }
     }
     publish(); return publicState();
 }
@@ -74,7 +75,24 @@ function installMenu() {
     ]);
     Menu.setApplicationMenu(menu);
 }
+function applyBounds(bounds) {
+    // Lower old mode/display minimums before shrinking onto a smaller monitor.
+    window.setMinimumSize(Math.min(state.compact ? 520 : 840, bounds.width), Math.min(state.compact ? 250 : 400, bounds.height));
+    window.setBounds(bounds, false);
+}
+function recoverPlacement() {
+    if (restoringBounds || !window || window.isDestroyed() || window.isMinimized() || window.isMaximized() || window.isFullScreen()) return;
+    const current = window.getBounds();
+    const fitted = fitBounds(current, screen.getAllDisplays(), state.compact);
+    if (Object.keys(fitted).some(key => current[key] !== fitted[key])) {
+        restoringBounds = true;
+        try { applyBounds(fitted); } finally { restoringBounds = false; }
+        save();
+    }
+}
 async function createWindow() {
+    restoringBounds = true;
+    clearTimeout(saveTimer);
     const bounds = fitBounds(state[state.compact ? 'performance' : 'workshop'], screen.getAllDisplays(), state.compact);
     window = new BrowserWindow({
         ...bounds, minWidth: Math.min(bounds.width, state.compact ? 520 : 840), minHeight: Math.min(bounds.height, state.compact ? 250 : 400),
@@ -86,7 +104,7 @@ async function createWindow() {
     window.webContents.on('will-navigate', (event, url) => { if (!isAppURL(url, service.origin)) { event.preventDefault(); openLink(url); } });
     window.webContents.on('will-redirect', (event, url) => { if (!isAppURL(url, service.origin)) event.preventDefault(); });
     window.webContents.on('will-attach-webview', event => event.preventDefault());
-    for (const event of ['move', 'resize']) window.on(event, () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 300); });
+    for (const event of ['move', 'resize']) window.on(event, () => { if (restoringBounds) return; clearTimeout(saveTimer); saveTimer = setTimeout(save, 300); });
     window.on('close', event => {
         save();
         // Keep one live MIDI connection when closing the macOS window. Cmd+Q quits.
@@ -97,6 +115,11 @@ async function createWindow() {
     await window.loadURL(`${service.origin}/ui/`);
     setPinned(state.pinned);
     window.show();
+    // Creation/show can apply native work-area constraints. Reapply the saved
+    // target after showing, before any startup publish/move can persist bounds.
+    applyBounds(bounds);
+    restoringBounds = false;
+    save();
 }
 async function smokeTest() {
     const check = (condition, message) => { if (!condition) throw Error(message); };
@@ -104,6 +127,28 @@ async function smokeTest() {
         await target.webContents.executeJavaScript("Promise.all(document.getAnimations().filter(a=>Number.isFinite(a.effect.getComputedTiming().iterations)).map(a=>a.finished.catch(()=>{}))).then(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))))");
         return target.webContents.capturePage();
     };
+    // Exercise the actual BrowserWindow creation path and disk readback. This is
+    // a window recreation, not proof of a fresh-process macOS/Ableton relaunch.
+    const placementDisplay = screen.getPrimaryDisplay();
+    const bottomTarget = fitBounds(null, [placementDisplay], true);
+    applyBounds(bottomTarget);
+    await new Promise(resolve => setTimeout(resolve, 350));
+    const placed = window.getBounds();
+    check(JSON.stringify(placed) === JSON.stringify(bottomTarget),
+        `Native bottom-edge placement: requested ${JSON.stringify(bottomTarget)}, got ${JSON.stringify(placed)}`);
+    save();
+    const persisted = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    check(JSON.stringify(persisted.performance) === JSON.stringify(placed), 'Bottom-edge bounds saved');
+    // Keep window-all-closed from quitting Linux during deliberate recreation.
+    const keeper = new BrowserWindow({show:false});
+    clearTimeout(saveTimer);
+    window.destroy();
+    state = normalizeState(JSON.parse(fs.readFileSync(statePath, 'utf8')));
+    await createWindow();
+    keeper.destroy();
+    await new Promise(resolve => setTimeout(resolve, 350));
+    check(JSON.stringify(window.getBounds()) === JSON.stringify(placed),
+        `Bottom-edge bounds restored: expected ${JSON.stringify(placed)}, got ${JSON.stringify(window.getBounds())}`);
     if (app.isPackaged) {
         const firmware = await status(service.origin);
         check(firmware.toolAvailable && !firmware.discoveryError, 'Bundled DFU tool runs');
@@ -373,6 +418,8 @@ else {
         shortcutAvailable = globalShortcut.register('Control+\\', toggleVisibility);
         if (!shortcutAvailable) console.error('Ctrl+Backslash is unavailable: another app may own it.');
         await createWindow();
+        for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) screen.on(event, recoverPlacement);
+        window.on('restore', recoverPlacement);
         if (smoke) await smokeTest();
     }).catch(error => {
         console.error(error);
@@ -380,3 +427,4 @@ else {
         service?.stop(); app.exit(1);
     });
 }
+
