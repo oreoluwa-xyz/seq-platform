@@ -18,6 +18,8 @@ A modular music composition platform. Today: a Keychron V1 Max sequencer, browse
 
 ## Development
 
+See the [contributor quickstart](CONTRIBUTING.md) for setup and checks by component. Many changes can be tested without a keyboard.
+
 Requires Python 3.13, Node 22.12+, Git, and a C compiler. QMK compilation additionally requires the QMK CLI/toolchain. macOS packaging requires native ARM64 Python with PyInstaller 6.22.3, Xcode command-line tools, and native Node/Electron.
 
 ```sh
